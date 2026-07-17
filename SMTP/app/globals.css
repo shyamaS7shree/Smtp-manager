@@ -1,0 +1,235 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 10% 3.9%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+/* Mobile-first responsive utilities */
+@layer utilities {
+  .container-responsive {
+    @apply w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6;
+  }
+  
+  .grid-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6;
+  }
+  
+  .text-responsive-sm {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg lg:text-xl;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  .btn-responsive {
+    @apply px-3 py-2 sm:px-4 sm:py-2.5 lg:px-6 lg:py-3 text-sm sm:text-base;
+  }
+  
+  .card-responsive {
+    @apply rounded-lg border border-gray-200 p-3 sm:p-4 lg:p-6;
+  }
+  
+  .table-responsive {
+    @apply block overflow-x-auto whitespace-nowrap;
+  }
+
+  .table-scroll {
+    @apply w-full overflow-x-auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tap-target {
+    @apply min-h-11 min-w-11;
+  }
+  
+  .sidebar-responsive {
+    @apply hidden lg:block lg:w-64 lg:flex-shrink-0;
+  }
+  
+  .mobile-menu-trigger {
+    @apply lg:hidden;
+  }
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Touch-friendly tap targets */
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+  
+  /* Better mobile spacing */
+  .mobile-spacing {
+    padding: 1rem 0.75rem;
+  }
+  
+  /* Mobile cards */
+  .mobile-card {
+    margin: 0.5rem 0;
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+  
+  /* Mobile tables */
+  .mobile-table {
+    font-size: 0.875rem;
+  }
+  
+  .mobile-table th,
+  .mobile-table td {
+    padding: 0.5rem 0.25rem;
+  }
+  
+  /* Mobile navigation */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    z-index: 50;
+  }
+  
+  /* Hide desktop elements on mobile */
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .h-screen.bg-background,
+  .flex.h-screen.bg-background {
+    min-height: 100dvh;
+    height: auto;
+  }
+
+  .flex.h-screen.bg-background > .flex-1 {
+    min-width: 0;
+  }
+
+  .flex.h-screen.bg-background > .flex-1.overflow-hidden,
+  .flex.h-screen.bg-background > .flex-1.flex.flex-col.overflow-hidden {
+    overflow: visible;
+  }
+
+  input,
+  select,
+  textarea,
+  button,
+  [role="button"] {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 641px) {
+  /* Hide mobile elements on desktop */
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Remove hover effects on touch devices */
+  .hover\:scale-105:hover {
+    transform: none;
+  }
+  
+  /* Better touch feedback */
+  button:active {
+    transform: scale(0.95);
+    transition: transform 0.1s;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card {
+    border-width: 2px;
+  }
+  
+  button {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

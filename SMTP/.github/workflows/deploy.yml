@@ -1,0 +1,43 @@
+name: Deploy to aaPanel Server
+
+on:
+  push:
+    branches:
+      - test
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: test
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            cd ${{ secrets.APP_PATH }}
+
+            echo "📥 Pulling latest code (test branch)"
+            git fetch origin
+            git checkout test
+            git pull origin test
+
+            echo "📦 Installing dependencies"
+            ${{ secrets.NODE_BIN }}/npm install
+
+            if [ -f package.json ] && grep -q "next build" package.json; then
+              echo "🏗️ Building Next.js app"
+              ${{ secrets.NODE_BIN }}/npm run build
+            fi
+
+            echo "🚀 Restarting Node app (aaPanel)"
+            pkill node || true
+            nohup ${{ secrets.NODE_BIN }}/npm start > app.log 2>&1 &
