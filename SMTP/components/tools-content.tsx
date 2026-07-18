@@ -8,9 +8,39 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 
+import { useToast } from "@/components/ui/use-toast"
+import { token } from "@/components/common/http"
+
+interface ListOption {
+  uid: string
+  name: string
+}
+
 export default function ToolsContent() {
   const [showSyncModal, setShowSyncModal] = useState(false)
   const [showSplitModal, setShowSplitModal] = useState(false)
+  const [lists, setLists] = useState<ListOption[]>([])
+  const { toast } = useToast()
+
+  useEffect(() => {
+    const fetchLists = async () => {
+      try {
+        const res = await fetch(`/api/get-all-lists?pageNumber=1&perPage=100&token=${token()}`)
+        const data = await res.json()
+        const records = data?.data?.records || data?.data?.data?.records || [];
+        
+        if (records && records.length > 0) {
+          setLists(records.map((r: any) => ({ 
+            uid: r?.general?.list_uid || r?.general?.unique_id || String(r?.general?.id), 
+            name: r?.general?.name || "Unnamed List" 
+          })))
+        }
+      } catch (err) {
+        console.error("Failed to load lists", err)
+      }
+    }
+    fetchLists()
+  }, [])
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,14 +77,14 @@ export default function ToolsContent() {
       {/* Sync Modal */}
       {showSyncModal && (
         <DraggableModal title="Sync lists" onClose={() => setShowSyncModal(false)}>
-          <SyncModalContent onClose={() => setShowSyncModal(false)} />
+          <SyncModalContent lists={lists} onClose={() => setShowSyncModal(false)} toast={toast} />
         </DraggableModal>
       )}
 
       {/* Split Modal */}
       {showSplitModal && (
         <DraggableModal title="Split list" onClose={() => setShowSplitModal(false)}>
-          <SplitModalContent onClose={() => setShowSplitModal(false)} />
+          <SplitModalContent lists={lists} onClose={() => setShowSplitModal(false)} toast={toast} />
         </DraggableModal>
       )}
     </div>
@@ -160,16 +190,53 @@ function DraggableModal({
   )
 }
 
-function SyncModalContent({ onClose }: { onClose: () => void }) {
-  const [primaryList, setPrimaryList] = useState("Test")
-  const [secondaryList, setSecondaryList] = useState("Test")
+function SyncModalContent({ lists, onClose, toast }: { lists: ListOption[], onClose: () => void, toast: any }) {
+  const [primaryList, setPrimaryList] = useState("")
+  const [secondaryList, setSecondaryList] = useState("")
   const [missingAction, setMissingAction] = useState("Do nothing")
   const [duplicateAction, setDuplicateAction] = useState("Do nothing")
   const [distinctAction, setDistinctAction] = useState("Do nothing")
+  const [loading, setLoading] = useState(false)
 
-  const handleSync = () => {
-    // Handle sync logic here
-    onClose()
+  const handleSync = async () => {
+    if (!primaryList || !secondaryList) {
+      toast({ title: "Error", description: "Please select both lists.", variant: "destructive" })
+      return
+    }
+    if (primaryList === secondaryList) {
+      toast({ title: "Error", description: "Primary and secondary lists must be different.", variant: "destructive" })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch("/api/tools/sync-list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token()}`,
+        },
+        body: JSON.stringify({
+          primary_list_uid: primaryList,
+          secondary_list_uid: secondaryList,
+          missing_action: missingAction,
+          duplicate_action: duplicateAction,
+          distinct_action: distinctAction,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.status === "success") {
+        toast({ title: "Success", description: data.message })
+        onClose()
+      } else {
+        toast({ title: "Error", description: data.message || "Failed to sync lists", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Something went wrong.", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -184,11 +251,9 @@ function SyncModalContent({ onClose }: { onClose: () => void }) {
               <SelectValue placeholder="Select list" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Test">Test</SelectItem>
-              <SelectItem value="Test1">Test1</SelectItem>
-              <SelectItem value="Test2">Test2</SelectItem>
-              <SelectItem value="Test3">Test3</SelectItem>
-              <SelectItem value="Test4">Test4</SelectItem>
+              {lists.map(l => (
+                <SelectItem key={`p-${l.uid}`} value={l.uid}>{l.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -202,11 +267,9 @@ function SyncModalContent({ onClose }: { onClose: () => void }) {
               <SelectValue placeholder="Select list" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Test">Test</SelectItem>
-              <SelectItem value="Test1">Test1</SelectItem>
-              <SelectItem value="Test2">Test2</SelectItem>
-              <SelectItem value="Test3">Test3</SelectItem>
-              <SelectItem value="Test4">Test4</SelectItem>
+              {lists.map(l => (
+                <SelectItem key={`s-${l.uid}`} value={l.uid}>{l.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -267,25 +330,54 @@ function SyncModalContent({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="mt-4 flex justify-end gap-2 border-t border-border pt-4">
-        <Button variant="outline" onClick={onClose}>
+        <Button variant="outline" onClick={onClose} disabled={loading}>
           Close
         </Button>
-        <Button className="bg-blue-500 text-white hover:bg-blue-600" onClick={handleSync}>
-          Sync
+        <Button className="bg-blue-500 text-white hover:bg-blue-600" onClick={handleSync} disabled={loading}>
+          {loading ? "Syncing..." : "Sync"}
         </Button>
       </div>
     </>
   )
 }
 
-function SplitModalContent({ onClose }: { onClose: () => void }) {
-  const [list, setList] = useState("Test")
+function SplitModalContent({ lists, onClose, toast }: { lists: ListOption[], onClose: () => void, toast: any }) {
+  const [list, setList] = useState("")
   const [numSublists, setNumSublists] = useState("2")
-  const [subscribersToMove, setSubscribersToMove] = useState("500")
+  const [loading, setLoading] = useState(false)
 
-  const handleSplit = () => {
-    // Handle split logic here
-    onClose()
+  const handleSplit = async () => {
+    if (!list) {
+      toast({ title: "Error", description: "Please select a list.", variant: "destructive" })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch("/api/tools/split-list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token()}`,
+        },
+        body: JSON.stringify({
+          list_uid: list,
+          split_count: numSublists
+        }),
+      })
+
+      const data = await res.json()
+      if (data.status === "success") {
+        toast({ title: "Success", description: data.message })
+        onClose()
+      } else {
+        toast({ title: "Error", description: data.message || "Failed to split list", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Something went wrong.", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -293,7 +385,7 @@ function SplitModalContent({ onClose }: { onClose: () => void }) {
       <div className="space-y-4">
         <div className="rounded-md bg-blue-500 p-3 text-sm text-white">
           This tool allows you to split a big list into multiple smaller ones. Please note that subscribers from the
-          selected list will be moved into new lists, not copied
+          selected list will be copied into new lists.
         </div>
 
         <div className="space-y-2">
@@ -305,11 +397,9 @@ function SplitModalContent({ onClose }: { onClose: () => void }) {
               <SelectValue placeholder="Select list" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Test">Test</SelectItem>
-              <SelectItem value="Test1">Test1</SelectItem>
-              <SelectItem value="Test2">Test2</SelectItem>
-              <SelectItem value="Test3">Test3</SelectItem>
-              <SelectItem value="Test4">Test4</SelectItem>
+              {lists.map(l => (
+                <SelectItem key={`split-${l.uid}`} value={l.uid}>{l.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -323,36 +413,18 @@ function SplitModalContent({ onClose }: { onClose: () => void }) {
             value={numSublists}
             onChange={(e) => setNumSublists(e.target.value)}
             min="2"
+            max="100"
             className="w-full border-input bg-background"
           />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">
-            How many subscribers to move at once <span className="text-red-500">*</span>
-          </label>
-          <Select value={subscribersToMove} onValueChange={setSubscribersToMove}>
-            <SelectTrigger className="w-full border-input bg-background">
-              <SelectValue placeholder="Select number" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="100">100</SelectItem>
-              <SelectItem value="200">200</SelectItem>
-              <SelectItem value="300">300</SelectItem>
-              <SelectItem value="400">400</SelectItem>
-              <SelectItem value="500">500</SelectItem>
-              <SelectItem value="1000">1000</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
       <div className="mt-4 flex justify-end gap-2 border-t border-border pt-4">
-        <Button variant="outline" onClick={onClose}>
+        <Button variant="outline" onClick={onClose} disabled={loading}>
           Close
         </Button>
-        <Button className="bg-blue-500 text-white hover:bg-blue-600" onClick={handleSplit}>
-          Split
+        <Button className="bg-blue-500 text-white hover:bg-blue-600" onClick={handleSplit} disabled={loading}>
+          {loading ? "Splitting..." : "Split"}
         </Button>
       </div>
     </>

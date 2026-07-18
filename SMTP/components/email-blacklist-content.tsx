@@ -11,28 +11,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import { token } from "@/components/common/http"
+import { useToast } from "@/components/ui/use-toast"
 
 interface BlacklistEntry {
-  id: string
+  uid: string
   email: string
   reason: string
   dateAdded: string
 }
 
-const loadBlacklistFromStorage = (): BlacklistEntry[] => {
-  if (typeof window === "undefined") return []
-  const saved = localStorage.getItem("blacklistData")
-  return saved ? JSON.parse(saved) : []
-}
-
-const saveBlacklistToStorage = (data: BlacklistEntry[]) => {
-  if (typeof window === "undefined") return
-  localStorage.setItem("blacklistData", JSON.stringify(data))
-}
-
 export default function EmailBlacklistContent() {
+  const { toast } = useToast()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [showError, setShowError] = useState(false)
@@ -43,36 +34,38 @@ export default function EmailBlacklistContent() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<BlacklistEntry | null>(null)
+  const [showRemoveAllConfirm, setShowRemoveAllConfirm] = useState(false)
+  
   const [visibleColumns, setVisibleColumns] = useState({
     email: true,
     reason: true,
     dateAdded: true,
   })
   const [showColumnsDropdown, setShowColumnsDropdown] = useState(false)
+  
+  const [blacklistData, setBlacklistData] = useState<BlacklistEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isImporting, setIsImporting] = useState(false)
 
-  // Load persisted data
-  const [blacklistData, setBlacklistData] = useState<BlacklistEntry[]>(() => {
-    const storedData = loadBlacklistFromStorage()
-    return storedData
-  })
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const fetchBlacklist = async () => {
+    try {
+      setIsLoading(true)
+      const res = await fetch(`/api/email-blacklist?token=${token()}`, { cache: 'no-store' })
+      const json = await res.json()
+      if (json.status === 'success' && json.data) {
+        setBlacklistData(json.data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch blacklist:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Load and sort data on mount
   useEffect(() => {
-    const storedData = loadBlacklistFromStorage()
-    const sortedData = storedData.sort(
-      (a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
-    )
-    setBlacklistData(sortedData)
-    setIsInitialLoad(false)
+    fetchBlacklist()
   }, [])
-
-  // Save data to localStorage when it changes
-  useEffect(() => {
-    if (!isInitialLoad && typeof window !== "undefined") {
-      saveBlacklistToStorage(blacklistData)
-    }
-  }, [blacklistData, isInitialLoad])
 
   // Add click outside handler to close dropdown
   useEffect(() => {
@@ -87,20 +80,19 @@ export default function EmailBlacklistContent() {
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [])
-  // Auto-hide success alert after 0.33 seconds
+
+  // Auto-hide success alert after 3 seconds
   useEffect(() => {
     if (showSuccess) {
       const timer = setTimeout(() => {
         setShowSuccess(false)
-      }, 330) // 330 milliseconds = 0.33 seconds
-
+      }, 3000) 
       return () => clearTimeout(timer)
     }
   }, [showSuccess])
 
-
   const handleRefresh = () => {
-    window.location.reload()
+    fetchBlacklist()
   }
 
   const handleToggleColumn = (column: keyof typeof visibleColumns) => {
@@ -110,8 +102,35 @@ export default function EmailBlacklistContent() {
     }))
   }
 
-  const handleRemoveItem = (id: string) => {
-    setBlacklistData(prev => prev.filter(item => item.id !== id))
+  const handleRemoveItem = async (uid: string) => {
+    try {
+      const res = await fetch(`/api/email-blacklist/${uid}?token=${token()}`, { method: 'DELETE' })
+      if (res.ok) {
+        setBlacklistData(prev => prev.filter(item => item.uid !== uid))
+        toast({ title: 'Success', description: 'Item removed successfully.' })
+      } else {
+        toast({ title: 'Error', description: 'Failed to remove item.', variant: 'destructive' })
+      }
+    } catch (err) {
+      console.error("Failed to delete item", err)
+      toast({ title: 'Error', description: 'Failed to remove item.', variant: 'destructive' })
+    }
+  }
+
+  const handleRemoveAll = async () => {
+    try {
+      const res = await fetch(`/api/email-blacklist/all?token=${token()}`, { method: 'DELETE' })
+      if (res.ok) {
+        setBlacklistData([])
+        setShowRemoveAllConfirm(false)
+        toast({ title: 'Success', description: 'All items removed successfully.' })
+      } else {
+        toast({ title: 'Error', description: 'Failed to clear list.', variant: 'destructive' })
+      }
+    } catch (err) {
+      console.error("Failed to clear blacklist", err)
+      toast({ title: 'Error', description: 'Failed to clear list.', variant: 'destructive' })
+    }
   }
 
   const handleEditItem = (item: BlacklistEntry) => {
@@ -125,7 +144,7 @@ export default function EmailBlacklistContent() {
       headers.join(','),
       ...blacklistData.map(item => [
         `"${item.email}"`,
-        `"${item.reason}"`,
+        `"${item.reason || ''}"`,
         `"${item.dateAdded}"`
       ].join(','))
     ].join('\n')
@@ -141,32 +160,46 @@ export default function EmailBlacklistContent() {
     document.body.removeChild(link)
   }
 
-  const handleImportCSV = () => {
+  const handleImportCSV = async () => {
     if (!importFile) return
+    setIsImporting(true)
 
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const text = e.target?.result as string
       const lines = text.split('\n')
-      const headers = lines[0].split(',')
-
-      const newEntries: BlacklistEntry[] = []
+      
+      const newEntries = []
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',')
-        if (values.length >= 2 && values[0].trim()) {
+        if (values.length >= 1 && values[0].trim()) {
           newEntries.push({
-            id: Date.now().toString() + i,
             email: values[0].replace(/"/g, '').trim(),
             reason: values[1] ? values[1].replace(/"/g, '').trim() : 'Imported',
-            dateAdded: new Date().toLocaleString(),
           })
         }
       }
 
-      setBlacklistData(prev => [...prev, ...newEntries])
-      setShowImportModal(false)
-      setImportFile(null)
-      setShowSuccess(true)
+      try {
+        const res = await fetch(`/api/email-blacklist/bulk?token=${token()}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emails: newEntries })
+        });
+        
+        if (res.ok) {
+          setShowImportModal(false)
+          setImportFile(null)
+          toast({ title: 'Success', description: 'Emails imported successfully.' })
+          fetchBlacklist()
+        } else {
+          toast({ title: 'Error', description: 'Failed to import emails.', variant: 'destructive' })
+        }
+      } catch(err) {
+        toast({ title: 'Error', description: 'Failed to import emails.', variant: 'destructive' })
+      } finally {
+        setIsImporting(false)
+      }
     }
     reader.readAsText(importFile)
   }
@@ -174,8 +207,8 @@ export default function EmailBlacklistContent() {
   const filteredData = blacklistData.filter((item) => {
     return (
       item.email.toLowerCase().includes(searchEmail.toLowerCase()) &&
-      item.reason.toLowerCase().includes(searchReason.toLowerCase()) &&
-      item.dateAdded.toLowerCase().includes(searchDate.toLowerCase())
+      (item.reason || "").toLowerCase().includes(searchReason.toLowerCase()) &&
+      (item.dateAdded || "").toLowerCase().includes(searchDate.toLowerCase())
     )
   })
 
@@ -184,37 +217,38 @@ export default function EmailBlacklistContent() {
     return (
       <div className="flex flex-col gap-6">
         <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Import from CSV file</DialogTitle>
+          <DialogContent className="sm:max-w-[500px] p-0 gap-0 border-0 overflow-hidden shadow-lg">
+            <DialogHeader className="p-4 border-b bg-white">
+              <DialogTitle className="text-lg font-normal text-gray-700">Import from CSV file</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="bg-blue-500 text-white p-3 rounded text-sm">
-                Please note, the csv file must contain a header with at least the email column.
-                If unsure about how to format your file, do an export first and see how the file
-                looks.
+            <div className="p-5 space-y-5 bg-white">
+              <div className="bg-[#00a8ff] text-white p-4 rounded text-[13px] leading-relaxed">
+                Please note, the csv file must contain a header with at least the email column.<br />
+                If unsure about how to format your file, do an export first and see how the file looks.
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">File</label>
-                <Input
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                  className="cursor-pointer"
-                />
+              <div className="space-y-1">
+                <label className="text-[13px] text-gray-600 block mb-1">File</label>
+                <div className="flex w-full items-center justify-between rounded border border-gray-300 bg-white px-3 py-1.5 text-sm focus-within:ring-1 focus-within:ring-[#00a8ff]">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                    className="w-full cursor-pointer file:mr-2 file:py-1 file:px-2 file:rounded file:border file:border-gray-400 file:text-xs file:font-normal file:bg-gray-100 file:text-black hover:file:bg-gray-200"
+                  />
+                </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowImportModal(false)}>
-                  Close
-                </Button>
-                <Button
-                  className="bg-blue-500 text-white hover:bg-blue-600"
-                  onClick={handleImportCSV}
-                  disabled={!importFile}
-                >
-                  Import file
-                </Button>
-              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t bg-[#f9fafb]">
+              <Button variant="outline" className="text-gray-700 bg-white border-gray-200 hover:bg-gray-50 h-9 px-4 font-normal" onClick={() => setShowImportModal(false)}>
+                Close
+              </Button>
+              <Button
+                className="bg-[#00a8ff] hover:bg-[#0097e6] text-white shadow-none h-9 px-4 font-normal"
+                onClick={handleImportCSV}
+                disabled={!importFile || isImporting}
+              >
+                {isImporting ? "Importing..." : "Import file"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -267,7 +301,7 @@ export default function EmailBlacklistContent() {
       {showSuccess && (
         <Alert className="bg-green-500 text-white border-green-500">
           <AlertDescription className="flex items-center justify-between">
-            <span>→ Your form has been successfully saved!</span>
+            <span>→ Action completed successfully!</span>
             <Button
               variant="ghost"
               size="icon"
@@ -283,7 +317,7 @@ export default function EmailBlacklistContent() {
       {showError && (
         <Alert variant="destructive" className="bg-red-500 text-white">
           <AlertDescription className="flex items-center justify-between">
-            <span>→ Your form has a few errors, please fix them and try again!</span>
+            <span>→ There was an error completing your request.</span>
             <Button
               variant="ghost"
               size="icon"
@@ -295,6 +329,7 @@ export default function EmailBlacklistContent() {
           </AlertDescription>
         </Alert>
       )}
+      
       {/* Delete Confirmation Modal */}
       <Dialog open={!!deleteConfirmItem} onOpenChange={() => setDeleteConfirmItem(null)}>
         <DialogContent className="sm:max-w-md">
@@ -315,7 +350,7 @@ export default function EmailBlacklistContent() {
                 className="bg-red-500 text-white hover:bg-red-600"
                 onClick={() => {
                   if (deleteConfirmItem) {
-                    handleRemoveItem(deleteConfirmItem.id)
+                    handleRemoveItem(deleteConfirmItem.uid)
                     setDeleteConfirmItem(null)
                   }
                 }}
@@ -326,44 +361,70 @@ export default function EmailBlacklistContent() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Import Modal */}
-      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+      
+      {/* Remove All Confirmation Modal */}
+      <Dialog open={showRemoveAllConfirm} onOpenChange={setShowRemoveAllConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Import from CSV file</DialogTitle>
+            <DialogTitle>Confirm Remove All</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="bg-blue-500 text-white p-3 rounded text-sm">
-              Please note, the csv file must contain a header with at least the email column.
-              If unsure about how to format your file, do an export first and see how the file
-              looks.
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">File</label>
-              <Input
-                type="file"
-                accept=".csv"
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                className="cursor-pointer"
-              />
-            </div>
+            <p className="text-sm text-gray-600">
+              Are you sure you want to remove all email addresses from your blacklist?
+              This action cannot be undone and these emails may receive future campaigns.
+            </p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowImportModal(false)}>
-                Close
+              <Button variant="outline" onClick={() => setShowRemoveAllConfirm(false)}>
+                Cancel
               </Button>
               <Button
-                className="bg-blue-500 text-white hover:bg-blue-600"
-                onClick={handleImportCSV}
-                disabled={!importFile}
+                className="bg-red-500 text-white hover:bg-red-600"
+                onClick={handleRemoveAll}
               >
-                Import file
+                Remove all
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* Import Modal */}
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="sm:max-w-[500px] p-0 gap-0 border-0 overflow-hidden shadow-lg">
+          <DialogHeader className="p-4 border-b bg-white">
+            <DialogTitle className="text-lg font-normal text-gray-700">Import from CSV file</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-5 bg-white">
+            <div className="bg-[#00a8ff] text-white p-4 rounded text-[13px] leading-relaxed">
+              Please note, the csv file must contain a header with at least the email column.<br />
+              If unsure about how to format your file, do an export first and see how the file looks.
+            </div>
+            <div className="space-y-1">
+              <label className="text-[13px] text-gray-600 block mb-1">File</label>
+              <div className="flex w-full items-center justify-between rounded border border-gray-300 bg-white px-3 py-1.5 text-sm focus-within:ring-1 focus-within:ring-[#00a8ff]">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  className="w-full cursor-pointer file:mr-2 file:py-1 file:px-2 file:rounded file:border file:border-gray-400 file:text-xs file:font-normal file:bg-gray-100 file:text-black hover:file:bg-gray-200"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 p-4 border-t bg-[#f9fafb]">
+            <Button variant="outline" className="text-gray-700 bg-white border-gray-200 hover:bg-gray-50 h-9 px-4 font-normal" onClick={() => setShowImportModal(false)}>
+              Close
+            </Button>
+            <Button
+              className="bg-[#00a8ff] hover:bg-[#0097e6] text-white shadow-none h-9 px-4 font-normal"
+              onClick={handleImportCSV}
+              disabled={!importFile || isImporting}
+            >
+              {isImporting ? "Importing..." : "Import file"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showCreateForm ? (
         <CreateEmailBlacklistForm
@@ -372,36 +433,13 @@ export default function EmailBlacklistContent() {
             setShowCreateForm(false)
             setEditingItem(null)
           }}
-          onSubmit={(success, data) => {
-            if (success && data) {
-              if (editingItem) {
-                // Update existing item
-                setBlacklistData((prev) =>
-                  prev.map((item) =>
-                    item.id === editingItem.id
-                      ? { ...item, email: data.email, reason: data.reason || "No reason provided" }
-                      : item
-                  )
-                )
-              } else {
-                // Add new item
-                setBlacklistData((prev) => [
-                  ...prev,
-                  {
-                    id: Date.now().toString(),
-                    email: data.email,
-                    reason: data.reason || "No reason provided",
-                    dateAdded: new Date().toLocaleString(),
-                  },
-                ])
-              }
-              setShowCreateForm(false)
-              setEditingItem(null)
-              setShowSuccess(true)
-            } else {
-              setShowError(true)
-            }
+          onSuccess={() => {
+            toast({ title: 'Success', description: editingItem ? 'Item updated successfully.' : 'Item added successfully.' })
+            setShowCreateForm(false)
+            setEditingItem(null)
+            fetchBlacklist()
           }}
+          onError={() => { toast({ title: 'Error', description: 'Failed to save item.', variant: 'destructive' }) }}
         />
       ) : (
         <>
@@ -469,6 +507,16 @@ export default function EmailBlacklistContent() {
                   </div>
                 )}
               </div>
+              
+              <Button
+                variant="destructive"
+                size="sm"
+                className="bg-red-500 text-white hover:bg-red-600 px-3 py-2 rounded text-sm flex items-center gap-2 font-medium transition-colors"
+                onClick={() => setShowRemoveAllConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove all
+              </Button>
 
               <Button
                 variant="default"
@@ -539,39 +587,39 @@ export default function EmailBlacklistContent() {
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
                     {visibleColumns.email && (
-                      <th className="px-4 py-3 text-left font-medium text-gray-700">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Email
                       </th>
                     )}
                     {visibleColumns.reason && (
-                      <th className="px-4 py-3 text-left font-medium text-gray-700">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Reason
                       </th>
                     )}
                     {visibleColumns.dateAdded && (
-                      <th className="px-4 py-3 text-left font-medium text-gray-700">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                         Date added
                       </th>
                     )}
-                    <th className="w-24 px-4 py-3 text-center font-medium text-gray-700">Options</th>
+                    <th className="w-24 px-4 py-3 text-center text-sm font-medium text-gray-700">Options</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredData.map((item, index) => (
-                    <tr key={item.id} className={`border-b border-gray-100 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                    <tr key={item.uid} className={`border-b border-gray-100 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                       {visibleColumns.email && (
-                        <td className="px-4 py-3 font-medium text-gray-900">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
                           {item.email}
                         </td>
                       )}
                       {visibleColumns.reason && (
-                        <td className="px-4 py-3 text-gray-600">
+                        <td className="px-4 py-3 text-sm text-gray-600">
                           {item.reason}
                         </td>
                       )}
                       {visibleColumns.dateAdded && (
-                        <td className="px-4 py-3 text-gray-600">
-                          {item.dateAdded}
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {new Date(item.dateAdded).toLocaleString()}
                         </td>
                       )}
                       <td className="px-4 py-3 text-center">
@@ -597,9 +645,15 @@ export default function EmailBlacklistContent() {
 
                         </div>
                       </td>
-
                     </tr>
                   ))}
+                  {filteredData.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-4 text-center text-sm text-gray-500">
+                        {isLoading ? "Loading blacklist..." : "No blacklisted emails found."}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -626,21 +680,42 @@ export default function EmailBlacklistContent() {
 function CreateEmailBlacklistForm({
   editingItem,
   onCancel,
-  onSubmit,
+  onSuccess,
+  onError
 }: {
   editingItem?: BlacklistEntry | null
   onCancel: () => void
-  onSubmit: (success: boolean, data?: { email: string; reason: string }) => void
+  onSuccess: () => void
+  onError: () => void
 }) {
   const [email, setEmail] = useState(editingItem?.email || "")
   const [reason, setReason] = useState(editingItem?.reason || "")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!email) {
-      onSubmit(false)
+      onError()
       return
     }
-    onSubmit(true, { email, reason })
+    
+    setIsSubmitting(true)
+    try {
+      const res = await fetch(`/api/email-blacklist?token=${token()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, reason })
+      })
+      
+      if (res.ok) {
+        onSuccess()
+      } else {
+        onError()
+      }
+    } catch (err) {
+      onError()
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -684,8 +759,13 @@ function CreateEmailBlacklistForm({
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="button" className="bg-blue-500 text-white hover:bg-blue-600" onClick={handleSubmit}>
-            Save changes
+          <Button 
+            type="button" 
+            className="bg-blue-500 text-white hover:bg-blue-600" 
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Save changes"}
           </Button>
         </div>
       </div>

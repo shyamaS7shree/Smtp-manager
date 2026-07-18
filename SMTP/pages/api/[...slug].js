@@ -26,6 +26,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
         "Accept": "application/json",
       },
+      cache: "no-store",
     };
 
     // Forward the authorization token

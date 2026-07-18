@@ -7,6 +7,7 @@ import { token } from "@/components/common/http";
 import { useEffect, useState } from "react";
 import { rateLimitedFetch } from "@/lib/utils";
 import { useRouter } from "next/navigation"
+import PromoModal from "@/components/promo-modal"
 
 interface UserSession {
   name: string
@@ -202,6 +203,7 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
+      <PromoModal />
     </div>
   )
 }

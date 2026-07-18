@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ChevronLeft,
@@ -250,45 +250,86 @@ export default function SubscribersTable() {
     { id: "lastUpdated", label: "Last updated", visible: true },
     { id: "action", label: "Action", visible: true },
   ]);
-const loadAllSubscribers = async () => {
+
+  const [filters, setFilters] = useState({
+    list_uid: "",
+    status: "",
+    source: "",
+    unique: "",
+    action: "",
+    email: "",
+    unique_id: "",
+    ip_address: "",
+    date_added_start: "",
+    date_added_end: "",
+    campaigns_action: "",
+    campaigns: "",
+    in_the_last_days: "",
+  });
+
+  const filtersRef = useRef(filters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  const [availableLists, setAvailableLists] = useState<any[]>([]);
+
+  useEffect(() => {
+    const cachedLists = localStorage.getItem("cachedLists");
+    if (cachedLists) {
+      const data = JSON.parse(cachedLists);
+      if (data.lists) setAvailableLists(data.lists);
+    }
+  }, []);
+const loadAllSubscribers = async (showLoading = true) => {
   try {
-    setLoading(true)
+    if (showLoading) setLoading(true)
     const session = JSON.parse(localStorage.getItem("userSession") || "{}")
     const token = session?.token || ""
-    const cachedLists = localStorage.getItem("cachedLists")
-    const listsData = cachedLists ? JSON.parse(cachedLists).lists || [] : []
 
-    const allSubscribers: any[] = []
-    for (const list of listsData) {
-      const res = await fetch(
-        `/api/get-all-subscribers?list_uid=${list.id}&page_number=1&per_page=100`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        }
-      )
-      const data = await res.json()
-      const records = data?.data?.data?.records || data?.data?.records || []
+    const queryParams = new URLSearchParams({
+      page_number: "1",
+      per_page: "100"
+    })
+    
+    const currentFilters = filtersRef.current;
+    if (currentFilters.list_uid) queryParams.append("list_uid", currentFilters.list_uid);
+    if (currentFilters.status) queryParams.append("status", currentFilters.status);
+    if (currentFilters.source) queryParams.append("source", currentFilters.source);
+    if (currentFilters.email) queryParams.append("email", currentFilters.email);
+    if (currentFilters.unique_id) queryParams.append("subscriber_uid", currentFilters.unique_id);
+    if (currentFilters.ip_address) queryParams.append("ip_address", currentFilters.ip_address);
+    if (currentFilters.date_added_start) queryParams.append("date_added_start", currentFilters.date_added_start);
+    if (currentFilters.date_added_end) queryParams.append("date_added_end", currentFilters.date_added_end);
+    if (currentFilters.in_the_last_days) queryParams.append("in_the_last_days", currentFilters.in_the_last_days);
 
-      records.forEach((r: any) => {
-        allSubscribers.push({
-          id: String(r?.subscriber_uid || r?.id || Date.now()),
-          uniqueId: r?.subscriber_uid || r?.uid || "",
-          email: r?.EMAIL || r?.email || "",
-          firstName: r?.FNAME || r?.first_name || "",
-          lastName: r?.LNAME || r?.last_name || "",
-          status: r?.status || "unconfirmed",  
-          dateAdded: r?.date_added || new Date().toISOString(),
-          ipAddress: r?.ip_address || "127.0.0.1",
-          listId: list.id,
-          listName: list.name,
-        })
-      })
-    }
+    const res = await fetch(
+      `/api/get-global-subscribers?${queryParams.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      }
+    )
+    const data = await res.json()
+    const records = data?.data?.records || []
 
-    setSubscribers(allSubscribers)
+    const formattedSubscribers = records.map((r: any) => ({
+      id: String(r?.subscriber_uid || r?.uid || Date.now()),
+      uniqueId: r?.subscriber_uid || r?.uid || "",
+      email: r?.email || "",
+      firstName: r?.first_name || "",
+      lastName: r?.last_name || "",
+      status: r?.status || "unconfirmed",
+      dateAdded: r?.date_added ? new Date(r.date_added).toLocaleDateString() : new Date().toLocaleDateString(),
+      ipAddress: r?.ip_address || "127.0.0.1",
+      listId: r?.list_uid || "",
+      listName: r?.list_name || "",
+      source: r?.source || "web"
+    }))
+
+    setSubscribers(formattedSubscribers)
   } catch (error) {
     console.error("Error:", error)
   } finally {
@@ -436,13 +477,13 @@ const loadAllSubscribers = async () => {
 
   // Load subscribers on component mount
   useEffect(() => {
-    loadAllSubscribers();
+    loadAllSubscribers(true);
   }, []);
 
   // Auto-refresh every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      loadAllSubscribers();
+      loadAllSubscribers(false);
     }, 5000);
 
     return () => clearInterval(interval);
@@ -451,12 +492,12 @@ const loadAllSubscribers = async () => {
   // Add focus/visibility listeners for real-time updates
   useEffect(() => {
     const handleFocus = () => {
-      loadAllSubscribers();
+      loadAllSubscribers(false);
     };
 
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        loadAllSubscribers();
+        loadAllSubscribers(false);
       }
     };
 
@@ -486,27 +527,15 @@ const loadAllSubscribers = async () => {
 
   const visibleColumns = columns.filter((col) => col.visible);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-7xl p-6">
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <span className="ml-3 text-gray-600">Loading subscribers...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-7xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            <h1 className="text-xl font-semibold">
+            <h1 className="text-xl font-semibold flex items-center gap-3">
               Subscribers from all your lists ({subscribers.length} total)
+              {loading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>}
             </h1>
           </div>
         </div>
@@ -528,7 +557,7 @@ const loadAllSubscribers = async () => {
 
           <Button
             className="bg-blue-500 text-white hover:bg-blue-600"
-            onClick={loadAllSubscribers}
+            onClick={() => loadAllSubscribers(true)}
             disabled={loading}
           >
             <RefreshCw
@@ -577,7 +606,14 @@ const loadAllSubscribers = async () => {
           </div>
         )}
 
-        {showFilters && <SubscriberFilters />}
+        {showFilters && (
+          <SubscriberFilters 
+            filters={filters} 
+            setFilters={setFilters} 
+            onSubmit={loadAllSubscribers} 
+            lists={availableLists}
+          />
+        )}
 
         <div className="rounded-md border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
@@ -596,13 +632,34 @@ const loadAllSubscribers = async () => {
               </thead>
               <tbody>
                 {subscribers.length === 0 ? (
-                  <tr className="border-b border-gray-200">
+                  <tr>
                     <td
-                      className="px-4 py-8 text-sm text-gray-500 text-center"
+                      className="px-4 py-16 text-center"
                       colSpan={visibleColumns.length}
                     >
-                      No subscribers found. Create some lists and add
-                      subscribers to see them here.
+                      {loading ? (
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
+                          <span className="text-gray-600">Loading subscribers...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="mb-4 rounded-full bg-gray-200 p-4">
+                            <Users className="h-12 w-12 text-gray-500" />
+                          </div>
+                          <h2 className="mb-2 text-xl font-semibold">
+                            No subscribers found
+                          </h2>
+                          <p className="max-w-md text-muted-foreground mb-6">
+                            Try adjusting your filters or go back to view your lists.
+                          </p>
+                          <Link href="/lists">
+                            <button className="bg-blue-500 text-white hover:bg-blue-600 px-6 py-2 rounded-md font-medium transition-colors">
+                              Back to lists
+                            </button>
+                          </Link>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -843,51 +900,66 @@ const loadAllSubscribers = async () => {
   );
 }
 
-function SubscriberFilters() {
+function SubscriberFilters({ filters, setFilters, onSubmit, lists }: any) {
+  const handleChange = (e: any) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
   return (
     <div className="mb-6 rounded-md border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-6 flex items-center text-lg font-medium">
-        <Filter className="mr-2 h-5 w-5" /> Filters
-      </h2>
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="flex items-center text-lg font-medium">
+          <Filter className="mr-2 h-5 w-5 text-gray-700" /> Filters
+        </h2>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-5">
         <div className="space-y-2">
           <label className="text-sm font-medium">Lists</label>
-          <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">Select lists</option>
+          <select name="list_uid" value={filters.list_uid} onChange={handleChange} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <option value="">Select list</option>
+            {lists?.map((list: any) => (
+              <option key={list.id || list.uid} value={list.id || list.uid}>{list.name}</option>
+            ))}
           </select>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Statuses</label>
-          <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+          <select name="status" value={filters.status} onChange={handleChange} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
             <option value="">Select statuses</option>
             <option value="confirmed">Confirmed</option>
             <option value="unconfirmed">Unconfirmed</option>
             <option value="unsubscribed">Unsubscribed</option>
             <option value="bounced">Bounced</option>
-            <option value="archived">Archived</option>
+            <option value="blacklisted">Blacklisted</option>
           </select>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Sources</label>
-          <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+          <select name="source" value={filters.source} onChange={handleChange} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
             <option value="">Select sources</option>
+            <option value="web">Web form</option>
+            <option value="api">API</option>
+            <option value="import">Import</option>
           </select>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Unique</label>
-          <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+          <select name="unique" value={filters.unique} onChange={handleChange} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
             <option value="">Select</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
           </select>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Action</label>
-          <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+          <select name="action" value={filters.action} onChange={handleChange} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
             <option value="view">View</option>
+            <option value="export">Export</option>
           </select>
         </div>
 
@@ -895,7 +967,10 @@ function SubscriberFilters() {
           <label className="text-sm font-medium">Email</label>
           <input
             type="email"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            name="email"
+            value={filters.email}
+            onChange={handleChange}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="name@domain.com"
           />
         </div>
@@ -904,7 +979,10 @@ function SubscriberFilters() {
           <label className="text-sm font-medium">Unique ID</label>
           <input
             type="text"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            name="unique_id"
+            value={filters.unique_id}
+            onChange={handleChange}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="jm338w77e4eea"
           />
         </div>
@@ -913,7 +991,10 @@ function SubscriberFilters() {
           <label className="text-sm font-medium">Ip Address</label>
           <input
             type="text"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            name="ip_address"
+            value={filters.ip_address}
+            onChange={handleChange}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="123.123.123.100"
           />
         </div>
@@ -922,8 +1003,10 @@ function SubscriberFilters() {
           <label className="text-sm font-medium">Date added start</label>
           <input
             type="date"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-            placeholder="Date added start"
+            name="date_added_start"
+            value={filters.date_added_start}
+            onChange={handleChange}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
@@ -931,15 +1014,20 @@ function SubscriberFilters() {
           <label className="text-sm font-medium">Date added end</label>
           <input
             type="date"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-            placeholder="Date added end"
+            name="date_added_end"
+            value={filters.date_added_end}
+            onChange={handleChange}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Campaigns Action</label>
-          <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+          <select name="campaigns_action" value={filters.campaigns_action} onChange={handleChange} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
             <option value="">Choose</option>
+            <option value="sent">Sent</option>
+            <option value="opened">Opened</option>
+            <option value="clicked">Clicked</option>
           </select>
         </div>
 
@@ -947,7 +1035,10 @@ function SubscriberFilters() {
           <label className="text-sm font-medium">Campaigns</label>
           <input
             type="text"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            name="campaigns"
+            value={filters.campaigns}
+            onChange={handleChange}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Campaign name"
           />
         </div>
@@ -957,21 +1048,31 @@ function SubscriberFilters() {
           <div className="flex gap-2">
             <input
               type="number"
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              name="in_the_last_days"
+              value={filters.in_the_last_days}
+              onChange={handleChange}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="30"
-              defaultValue="30"
             />
-            <select className="w-24 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-              <option value="days">Days</option>
-              <option value="weeks">Weeks</option>
-              <option value="months">Months</option>
-            </select>
+            <span className="text-sm py-2 px-1 text-gray-500">Days</span>
           </div>
         </div>
       </div>
 
-      <div className="mt-6 flex justify-end">
-        <button className="bg-blue-500 text-white hover:bg-blue-600 px-4 py-2 rounded-md font-medium">
+      <div className="mt-6 flex justify-end gap-3">
+        <button 
+          onClick={() => {
+            setFilters({
+              list_uid: "", status: "", source: "", unique: "", action: "", email: "",
+              unique_id: "", ip_address: "", date_added_start: "", date_added_end: "",
+              campaigns_action: "", campaigns: "", in_the_last_days: "",
+            });
+            setTimeout(onSubmit, 10);
+          }}
+          className="text-sm px-4 py-2 text-gray-600 hover:text-gray-900 font-medium border border-transparent rounded hover:border-gray-200">
+          Clear
+        </button>
+        <button onClick={onSubmit} className="bg-blue-600 text-white hover:bg-blue-700 px-6 py-2 rounded-md font-medium transition-colors shadow-sm">
           Submit
         </button>
       </div>

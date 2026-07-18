@@ -191,10 +191,11 @@ export default function AccountPage() {
       });
       const json = await res.json();
       if (json.status === 'success') {
-        setSuccessMessage("→ Profile info successfully updated!");
+        setSuccessMessage("Profile info successfully updated!");
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        setTimeout(() => setSuccessMessage(null), 5000);
+        setTimeout(() => setSuccessMessage(null), 2000);
         session.avatar = avatar;
+        session.name = (formData.firstName + ' ' + formData.lastName).trim() || session.name;
         localStorage.setItem("userSession", JSON.stringify(session));
         window.dispatchEvent(new Event("storage"));
       } else {
@@ -243,10 +244,13 @@ export default function AccountPage() {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-5xl mx-auto">
             {successMessage && (
-              <div className="bg-[#2ecc71] text-white px-4 py-3 rounded mb-4 flex justify-between items-center text-sm font-medium shadow-sm">
-                <span>{successMessage}</span>
-                <button onClick={() => setSuccessMessage(null)} className="text-white hover:text-gray-100 font-bold text-lg leading-none">
-                  ×
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-4 rounded-lg mb-6 flex justify-between items-center text-sm font-medium shadow-lg shadow-emerald-500/20 border border-emerald-400/30 animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="flex items-center gap-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                  <span>{successMessage}</span>
+                </div>
+                <button onClick={() => setSuccessMessage(null)} className="text-emerald-50 hover:text-white transition-colors bg-white/10 hover:bg-white/20 p-1.5 rounded-full leading-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
               </div>
             )}
