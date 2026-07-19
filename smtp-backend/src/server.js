@@ -10,6 +10,10 @@ const templatesRoutes = require('./routes/templates.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const notificationsRoutes = require('./routes/notifications.routes');
 const usersRoutes = require('./routes/users.routes');
+const toolsRoutes = require('./routes/tools.routes');
+const emailBlacklistRoutes = require('./routes/email-blacklist.routes');
+const suppressionRoutes = require('./routes/suppression-list.routes');
+const ipBlacklistRoutes = require('./routes/ip-blacklist.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -43,6 +47,10 @@ app.use('/api', templatesRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', notificationsRoutes);
 app.use('/api', usersRoutes);
+app.use('/api/tools', toolsRoutes);
+app.use('/api', emailBlacklistRoutes);
+app.use('/api', suppressionRoutes);
+app.use('/api', ipBlacklistRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────
 app.use((req, res) => {

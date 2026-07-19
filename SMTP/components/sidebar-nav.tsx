@@ -16,6 +16,10 @@ import {
   Sun,
   Moon,
   LayoutTemplate,
+  MessageSquare,
+  Network,
+  Globe,
+  Settings,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { usePathname } from "next/navigation"
@@ -44,10 +48,18 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
     "Landing pages": false,
     Surveys: false,
   })
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
 
-  // After mounting, we can access the theme
+  // After mounting, we can access the theme and set time
   useEffect(() => {
     setMounted(true)
+    setCurrentTime(new Date())
+    
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    
+    return () => clearInterval(timer)
   }, [])
 
   // Auto-expand the sidebar item based on current path
@@ -85,10 +97,10 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
       label: "Lists",
       subItems: [
         { label: "Lists", href: "/lists" },
-        //{ label: "Tools", href: "/lists/tools" }, [[[mailwizz not provieded api for all]]]
-        //{ label: "Email blacklist", href: "/lists/email-blacklist" },
-        //{ label: "Suppression lists", href: "/lists/suppression" },
-        //{ label: "IP blacklist", href: "/lists/ip-blacklist" },
+        { label: "Tools", href: "/lists/tools" },
+        { label: "Email blacklist", href: "/lists/email-blacklist" },
+        { label: "Suppression lists", href: "/lists/suppression" },
+        { label: "IP blacklist", href: "/lists/ip-blacklist" },
       ],
     },
     {
@@ -191,33 +203,32 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
           ))}
         </ul>
       </nav>
-      <div className="flex items-center justify-between border-t border-border p-2 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={toggleTheme}
-            className="rounded-md p-1 hover:bg-accent"
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          >
-            {mounted && theme === "dark" ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-          </button>
-        </div>
+      <div className="flex items-center justify-between border-t border-border p-3 text-[13px] font-medium text-muted-foreground">
+        <span>Local time</span>
+        <span>
+          {mounted && currentTime 
+            ? `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, '0')}-${String(currentTime.getDate()).padStart(2, '0')} ${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}:${String(currentTime.getSeconds()).padStart(2, '0')}` 
+            : "..."}
+        </span>
       </div>
       {!isMobile && (
         <div className="border-t border-border p-4">
-          <div className="rounded-md bg-orange-500 p-6 text-white">
-            <div className="mb-1 text-center text-xs font-medium">Current Plan</div>
-            <div className="mb-2 text-center text-lg font-bold">BASIC</div>
-            <div className="mb-1 text-xs">STORAGE</div>
-            <div className="mb-2 h-2 overflow-hidden rounded-full bg-white/30">
-              <div className="h-full w-[40%] rounded-full bg-white"></div>
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-gray-900 to-black p-5 text-white shadow-xl dark:from-gray-800 dark:to-gray-900">
+            {/* Subtle glow effect */}
+            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-orange-500/30 blur-2xl"></div>
+            <div className="absolute -left-4 -bottom-4 h-20 w-20 rounded-full bg-blue-500/20 blur-2xl"></div>
+            
+            <div className="relative z-10 flex flex-col items-center">
+              <span className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Current Plan</span>
+              <span className="mb-4 text-2xl font-black tracking-tight text-white drop-shadow-sm">BASIC</span>
+              
+              <button
+                onClick={() => (window.location.href = "/upgrade")}
+                className="w-full rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-sm font-bold text-white transition-all hover:from-orange-400 hover:to-orange-500 hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] active:scale-[0.98]"
+              >
+                Upgrade Plan
+              </button>
             </div>
-            <div className="text-right text-xs">40%</div>
-            <button
-              onClick={() => (window.location.href = "UPGRADE_LINK_HERE")}
-              className="w-full rounded-md bg-white py-2 text-sm font-medium text-orange-500 hover:bg-orange-50 transition-colors"
-            >
-              Upgrade Plan
-            </button>
           </div>
         </div>
       )}

@@ -1,10 +1,10 @@
 import { Search, Bell, ShoppingCart } from "lucide-react"
 import Image from "next/image"
 import SidebarNav from "@/components/sidebar-nav"
-import SuppressionListsContent from "@/components/suppression-lists-content"
+import SuppressionListContent from "@/components/suppression-list-content"
 import Header from "@/components/common/header"
 
-export default function SuppressionListsPage() {
+export default function SuppressionListPage() {
   return (
     <div className="flex h-screen bg-background">
       <div className="hidden lg:block">
@@ -39,9 +39,9 @@ export default function SuppressionListsPage() {
             </div>
           </div>
         </header> */}
-        <Header/>
+         <Header/>
         <main className="p-4 sm:p-6">
-          <SuppressionListsContent />
+          <SuppressionListContent />
         </main>
       </div>
     </div>

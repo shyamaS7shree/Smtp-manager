@@ -15,49 +15,48 @@ import {
 import { token } from "@/components/common/http"
 import { useToast } from "@/components/ui/use-toast"
 
-interface IpBlacklistEntry {
+interface SuppressionListEntry {
   uid: string
-  ip: string
+  email: string
   reason: string
   dateAdded: string
 }
 
-export default function IpBlacklistContent() {
+export default function SuppressionListContent() {
   const { toast } = useToast()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [showError, setShowError] = useState(false)
-  const [searchIP, setSearchIP] = useState("")
+  const [searchEmail, setSearchEmail] = useState("")
   const [searchReason, setSearchReason] = useState("")
   const [searchDate, setSearchDate] = useState("")
-  const [editingItem, setEditingItem] = useState<IpBlacklistEntry | null>(null)
+  const [editingItem, setEditingItem] = useState<SuppressionListEntry | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
-  const [deleteConfirmItem, setDeleteConfirmItem] = useState<IpBlacklistEntry | null>(null)
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<SuppressionListEntry | null>(null)
   const [showRemoveAllConfirm, setShowRemoveAllConfirm] = useState(false)
-
+  
   const [visibleColumns, setVisibleColumns] = useState({
-    ip: true,
+    email: true,
     reason: true,
     dateAdded: true,
   })
   const [showColumnsDropdown, setShowColumnsDropdown] = useState(false)
-
-  const [ipBlacklistData, setIpBlacklistData] = useState<IpBlacklistEntry[]>([])
+  
+  const [suppressionListData, setSuppressionListData] = useState<SuppressionListEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isImporting, setIsImporting] = useState(false)
 
-  const fetchIpBlacklist = async () => {
+  const fetchSuppressionList = async () => {
     try {
       setIsLoading(true)
-      const res = await fetch(`/api/ip-blacklist?token=${token()}`, { cache: 'no-store' })
+      const res = await fetch(`/api/suppression-list?token=${token()}`, { cache: 'no-store' })
       const json = await res.json()
       if (json.status === 'success' && json.data) {
-        setIpBlacklistData(json.data)
+        setSuppressionListData(json.data)
       }
-
     } catch (err) {
-      console.error("Failed to fetch IP blacklist:", err)
+      console.error("Failed to fetch suppression list:", err)
     } finally {
       setIsLoading(false)
     }
@@ -65,7 +64,7 @@ export default function IpBlacklistContent() {
 
   // Load and sort data on mount
   useEffect(() => {
-    fetchIpBlacklist()
+    fetchSuppressionList()
   }, [])
 
   // Add click outside handler to close dropdown
@@ -87,13 +86,13 @@ export default function IpBlacklistContent() {
     if (showSuccess) {
       const timer = setTimeout(() => {
         setShowSuccess(false)
-      }, 3000)
+      }, 3000) 
       return () => clearTimeout(timer)
     }
   }, [showSuccess])
 
   const handleRefresh = () => {
-    fetchIpBlacklist()
+    fetchSuppressionList()
   }
 
   const handleToggleColumn = (column: keyof typeof visibleColumns) => {
@@ -105,9 +104,9 @@ export default function IpBlacklistContent() {
 
   const handleRemoveItem = async (uid: string) => {
     try {
-      const res = await fetch(`/api/ip-blacklist/${uid}?token=${token()}`, { method: 'DELETE' })
+      const res = await fetch(`/api/suppression-list/${uid}?token=${token()}`, { method: 'DELETE' })
       if (res.ok) {
-        setIpBlacklistData(prev => prev.filter(item => item.uid !== uid))
+        setSuppressionListData(prev => prev.filter(item => item.uid !== uid))
         toast({ title: 'Success', description: 'Item removed successfully.' })
       } else {
         toast({ title: 'Error', description: 'Failed to remove item.', variant: 'destructive' })
@@ -120,31 +119,31 @@ export default function IpBlacklistContent() {
 
   const handleRemoveAll = async () => {
     try {
-      const res = await fetch(`/api/ip-blacklist/all?token=${token()}`, { method: 'DELETE' })
+      const res = await fetch(`/api/suppression-list/all?token=${token()}`, { method: 'DELETE' })
       if (res.ok) {
-        setIpBlacklistData([])
+        setSuppressionListData([])
         setShowRemoveAllConfirm(false)
         toast({ title: 'Success', description: 'All items removed successfully.' })
       } else {
         toast({ title: 'Error', description: 'Failed to clear list.', variant: 'destructive' })
       }
     } catch (err) {
-      console.error("Failed to clear ip blacklist", err)
+      console.error("Failed to clear suppression list", err)
       toast({ title: 'Error', description: 'Failed to clear list.', variant: 'destructive' })
     }
   }
 
-  const handleEditItem = (item: IpBlacklistEntry) => {
+  const handleEditItem = (item: SuppressionListEntry) => {
     setEditingItem(item)
     setShowCreateForm(true)
   }
 
   const handleExportCSV = () => {
-    const headers = ['IP', 'Reason', 'Date Added']
+    const headers = ['Email', 'Reason', 'Date Added']
     const csvContent = [
       headers.join(','),
-      ...ipBlacklistData.map(item => [
-        `"${item.ip}"`,
+      ...suppressionListData.map(item => [
+        `"${item.email}"`,
         `"${item.reason || ''}"`,
         `"${item.dateAdded}"`
       ].join(','))
@@ -154,7 +153,7 @@ export default function IpBlacklistContent() {
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
     link.setAttribute('href', url)
-    link.setAttribute('download', 'ip-blacklist.csv')
+    link.setAttribute('download', 'suppression-list.csv')
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
@@ -169,35 +168,35 @@ export default function IpBlacklistContent() {
     reader.onload = async (e) => {
       const text = e.target?.result as string
       const lines = text.split('\n')
-
+      
       const newEntries = []
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',')
         if (values.length >= 1 && values[0].trim()) {
           newEntries.push({
-            ip: values[0].replace(/"/g, '').trim(),
+            email: values[0].replace(/"/g, '').trim(),
             reason: values[1] ? values[1].replace(/"/g, '').trim() : 'Imported',
           })
         }
       }
 
       try {
-        const res = await fetch(`/api/ip-blacklist/bulk?token=${token()}`, {
+        const res = await fetch(`/api/suppression-list/bulk?token=${token()}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ips: newEntries })
+          body: JSON.stringify({ emails: newEntries })
         });
-
+        
         if (res.ok) {
           setShowImportModal(false)
           setImportFile(null)
-          toast({ title: 'Success', description: 'IP addresses imported successfully.' })
-          fetchIpBlacklist()
+          toast({ title: 'Success', description: 'Emails imported successfully.' })
+          fetchSuppressionList()
         } else {
-          toast({ title: 'Error', description: 'Failed to import IP addresses.', variant: 'destructive' })
+          toast({ title: 'Error', description: 'Failed to import emails.', variant: 'destructive' })
         }
-      } catch (err) {
-        toast({ title: 'Error', description: 'Failed to import IP addresses.', variant: 'destructive' })
+      } catch(err) {
+        toast({ title: 'Error', description: 'Failed to import emails.', variant: 'destructive' })
       } finally {
         setIsImporting(false)
       }
@@ -205,16 +204,16 @@ export default function IpBlacklistContent() {
     reader.readAsText(importFile)
   }
 
-  const filteredData = ipBlacklistData.filter((item) => {
+  const filteredData = suppressionListData.filter((item) => {
     return (
-      item.ip.toLowerCase().includes(searchIP.toLowerCase()) &&
+      item.email.toLowerCase().includes(searchEmail.toLowerCase()) &&
       (item.reason || "").toLowerCase().includes(searchReason.toLowerCase()) &&
       (item.dateAdded || "").toLowerCase().includes(searchDate.toLowerCase())
     )
   })
 
   // Empty state when no data
-  if (ipBlacklistData.length === 0 && !showCreateForm) {
+  if (suppressionListData.length === 0 && !showCreateForm) {
     return (
       <div className="flex flex-col gap-6">
         <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
@@ -224,7 +223,7 @@ export default function IpBlacklistContent() {
             </DialogHeader>
             <div className="p-5 space-y-5 bg-white">
               <div className="bg-[#00a8ff] text-white p-4 rounded text-[13px] leading-relaxed">
-                Please note, the csv file must contain a header with at least the ip column.<br />
+                Please note, the csv file must contain a header with at least the email column.<br />
                 If unsure about how to format your file, do an export first and see how the file looks.
               </div>
               <div className="space-y-1">
@@ -255,7 +254,7 @@ export default function IpBlacklistContent() {
         </Dialog>
         <div className="flex items-center justify-between">
           <h1 className="flex items-center text-xl font-semibold">
-            <Ban className="mr-2 h-5 w-5" /> IP Blacklist
+            <Ban className="mr-2 h-5 w-5" /> Suppression List
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -286,10 +285,10 @@ export default function IpBlacklistContent() {
             <div className="mb-4 rounded-full bg-gray-200 p-4">
               <Ban className="h-12 w-12 text-gray-500" />
             </div>
-            <h2 className="mb-2 text-xl font-semibold"> Manage your ip IP blacklist</h2>
+            <h2 className="mb-2 text-xl font-semibold"> Manage your email suppression list</h2>
             <p className="max-w-md text-muted-foreground">
-              Create your own ip IP blacklist to include subscribers that will never receive ips
-              from you and that will never be added to your ip lists.
+              Create your own email suppression list to include subscribers that will never receive emails
+              from you and that will never be added to your email lists.
             </p>
           </div>
         </div>
@@ -330,7 +329,7 @@ export default function IpBlacklistContent() {
           </AlertDescription>
         </Alert>
       )}
-
+      
       {/* Delete Confirmation Modal */}
       <Dialog open={!!deleteConfirmItem} onOpenChange={() => setDeleteConfirmItem(null)}>
         <DialogContent className="sm:max-w-md">
@@ -339,8 +338,8 @@ export default function IpBlacklistContent() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Are you sure you want to delete the ip address{" "}
-              <span className="font-medium text-gray-900">{deleteConfirmItem?.ip}</span>?
+              Are you sure you want to delete the email address{" "}
+              <span className="font-medium text-gray-900">{deleteConfirmItem?.email}</span>?
               This action cannot be undone.
             </p>
             <div className="flex justify-end gap-2">
@@ -362,7 +361,7 @@ export default function IpBlacklistContent() {
           </div>
         </DialogContent>
       </Dialog>
-
+      
       {/* Remove All Confirmation Modal */}
       <Dialog open={showRemoveAllConfirm} onOpenChange={setShowRemoveAllConfirm}>
         <DialogContent className="sm:max-w-md">
@@ -371,8 +370,8 @@ export default function IpBlacklistContent() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Are you sure you want to remove all ip addresses from your IP blacklist?
-              This action cannot be undone and these ips may receive future campaigns.
+              Are you sure you want to remove all email addresses from your suppression list?
+              This action cannot be undone and these emails may receive future campaigns.
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowRemoveAllConfirm(false)}>
@@ -397,7 +396,7 @@ export default function IpBlacklistContent() {
           </DialogHeader>
           <div className="p-5 space-y-5 bg-white">
             <div className="bg-[#00a8ff] text-white p-4 rounded text-[13px] leading-relaxed">
-              Please note, the csv file must contain a header with at least the ip column.<br />
+              Please note, the csv file must contain a header with at least the email column.<br />
               If unsure about how to format your file, do an export first and see how the file looks.
             </div>
             <div className="space-y-1">
@@ -429,27 +428,20 @@ export default function IpBlacklistContent() {
 
 
       {showCreateForm ? (
-        <CreateIpBlacklistForm
+        <CreateSuppressionListForm
           editingItem={editingItem}
           onCancel={() => {
             setShowCreateForm(false)
             setEditingItem(null)
           }}
-          onSuccess={() => {
-            toast({ title: 'Success', description: editingItem ? 'Item updated successfully.' : 'Item added successfully.' })
-            setShowCreateForm(false)
-            setEditingItem(null)
-            fetchIpBlacklist()
-          }}
-          onError={() => {
-            toast({ title: 'Error', description: 'Failed to save item.', variant: 'destructive' })
-          }}
+          onSuccess={() => handleSaveNew()}
+          onError={() => { toast({ title: 'Error', description: 'Failed to save item.', variant: 'destructive' }) }}
         />
       ) : (
         <>
           <div className="flex items-center justify-between">
             <h1 className="flex items-center text-xl font-semibold">
-              <Ban className="mr-2 h-5 w-5" /> IP Blacklist
+              <Ban className="mr-2 h-5 w-5" /> Suppression List
             </h1>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative columns-dropdown">
@@ -468,13 +460,13 @@ export default function IpBlacklistContent() {
                       <div className="flex items-center space-x-2 py-1">
                         <input
                           type="checkbox"
-                          id="ip"
-                          checked={visibleColumns.ip}
-                          onChange={() => handleToggleColumn("ip")}
+                          id="email"
+                          checked={visibleColumns.email}
+                          onChange={() => handleToggleColumn("email")}
                           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <label htmlFor="ip" className="text-sm font-medium text-gray-700">
-                          IP
+                        <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                          Email
                         </label>
                       </div>
                       <div className="flex items-center space-x-2 py-1">
@@ -511,7 +503,7 @@ export default function IpBlacklistContent() {
                   </div>
                 )}
               </div>
-
+              
               <Button
                 variant="destructive"
                 size="sm"
@@ -565,19 +557,19 @@ export default function IpBlacklistContent() {
           </div>
 
           <div className="text-sm text-gray-600 mb-2">
-            Displaying {filteredData.length} of {ipBlacklistData.length} result{ipBlacklistData.length !== 1 ? 's' : ''}
+            Displaying {filteredData.length} of {suppressionListData.length} result{suppressionListData.length !== 1 ? 's' : ''}
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             {/* Search Filters Row */}
             <div className="border-b border-gray-200 p-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                {visibleColumns.ip && (
+                {visibleColumns.email && (
                   <div>
                     <Input
-                      placeholder="Search ip..."
-                      value={searchIP}
-                      onChange={(e) => setSearchIP(e.target.value)}
+                      placeholder="Search email..."
+                      value={searchEmail}
+                      onChange={(e) => setSearchEmail(e.target.value)}
                       className="h-8 text-sm border-gray-300 w-32"
                     />
                   </div>
@@ -590,9 +582,9 @@ export default function IpBlacklistContent() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
-                    {visibleColumns.ip && (
+                    {visibleColumns.email && (
                       <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                        IP
+                        Email
                       </th>
                     )}
                     {visibleColumns.reason && (
@@ -611,9 +603,9 @@ export default function IpBlacklistContent() {
                 <tbody>
                   {filteredData.map((item, index) => (
                     <tr key={item.uid} className={`border-b border-gray-100 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                      {visibleColumns.ip && (
+                      {visibleColumns.email && (
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                          {item.ip}
+                          {item.email}
                         </td>
                       )}
                       {visibleColumns.reason && (
@@ -654,7 +646,7 @@ export default function IpBlacklistContent() {
                   {filteredData.length === 0 && (
                     <tr>
                       <td colSpan={4} className="p-4 text-center text-sm text-gray-500">
-                        {isLoading ? "Loading IP blacklist..." : "No IP blacklisted IPs found."}
+                        {isLoading ? "Loading suppression list..." : "No suppression listed emails found."}
                       </td>
                     </tr>
                   )}
@@ -681,35 +673,35 @@ export default function IpBlacklistContent() {
   )
 }
 
-function CreateIpBlacklistForm({
+function CreateSuppressionListForm({
   editingItem,
   onCancel,
   onSuccess,
   onError
 }: {
-  editingItem?: IpBlacklistEntry | null
+  editingItem?: SuppressionListEntry | null
   onCancel: () => void
   onSuccess: () => void
   onError: () => void
 }) {
-  const [ip, setIP] = useState(editingItem?.ip || "")
+  const [email, setEmail] = useState(editingItem?.email || "")
   const [reason, setReason] = useState(editingItem?.reason || "")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async () => {
-    if (!ip) {
+    if (!email) {
       onError()
       return
     }
-
+    
     setIsSubmitting(true)
     try {
-      const res = await fetch(`/api/ip-blacklist?token=${token()}`, {
+      const res = await fetch(`/api/suppression-list?token=${token()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip, reason })
+        body: JSON.stringify({ email, reason })
       })
-
+      
       if (res.ok) {
         onSuccess()
       } else {
@@ -727,7 +719,7 @@ function CreateIpBlacklistForm({
       <div className="flex items-center justify-between mb-6">
         <h2 className="flex items-center text-xl font-semibold dark:text-white text-gray-900">
           <Ban className="mr-2 h-5 w-5 dark:text-white" />
-          {editingItem ? 'Edit ip address in IP blacklist' : 'Add a new ip address to IP blacklist'}
+          {editingItem ? 'Edit email address in suppression list' : 'Add a new email address to suppression list'}
         </h2>
         <Button variant="outline" onClick={onCancel}>
           Cancel
@@ -737,23 +729,22 @@ function CreateIpBlacklistForm({
       <div className="space-y-6">
         <div className="space-y-2">
           <label className="text-sm font-medium dark:text-white text-gray-700">
-            IP <span className="text-red-500">*</span>
+            Email <span className="text-red-500">*</span>
           </label>
           <Input
-            type="ip"
-            placeholder="Enter ip address"
-            value={ip}
-            onChange={(e) => setIP(e.target.value)}
+            type="email"
+            placeholder="Enter email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="w-full border-gray-300"
             required
-            disabled={!!editingItem} // If editing, probably shouldn't change ip (or let them, UPSERT handles it)
           />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium dark:text-white text-gray-700">Reason</label>
           <Textarea
-            placeholder="Enter reason for IP blacklisting (optional)"
+            placeholder="Enter reason for suppression listing (optional)"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             className="min-h-[120px] w-full border-gray-300"
@@ -764,9 +755,9 @@ function CreateIpBlacklistForm({
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            className="bg-blue-500 text-white hover:bg-blue-600"
+          <Button 
+            type="button" 
+            className="bg-blue-500 text-white hover:bg-blue-600" 
             onClick={handleSubmit}
             disabled={isSubmitting}
           >

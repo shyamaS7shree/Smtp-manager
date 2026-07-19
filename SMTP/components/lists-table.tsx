@@ -1646,6 +1646,10 @@ const handelImport = (list: EmailList) => {
                 </div>
               )}
             </div>
+            <Link href="/subscribers" className="bg-emerald-500 text-white hover:bg-emerald-600 px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm flex items-center gap-1 font-medium transition-colors">
+              <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">All subscribers</span><span className="sm:hidden">Subscribers</span>
+            </Link>
             <button className="bg-blue-500 text-white hover:bg-blue-600 px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm flex items-center gap-1 font-medium transition-colors" onClick={openCreateForm}>
               <PlusCircle className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Create new</span><span className="sm:hidden">Create</span>

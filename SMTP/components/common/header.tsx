@@ -24,6 +24,22 @@ interface Notification {
   expires_at: string
 }
 
+const formatDisplayName = (name?: string) => {
+  if (!name) return "User"
+  if (name.includes(' ')) {
+    return name.split(' ')
+      .filter(Boolean)
+      .map(n => n.charAt(0).toUpperCase() + n.slice(1).toLowerCase())
+      .join(' ')
+  }
+  const match = name.match(/^[a-zA-Z]+/)
+  if (match) {
+    const cleanName = match[0]
+    return cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase()
+  }
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
+}
+
 export default function Header() {
   const [user, setUser] = useState<UserSession | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
@@ -265,7 +281,7 @@ export default function Header() {
             className="flex min-h-10 items-center gap-2 rounded-md px-1 transition-opacity hover:opacity-80"
           >
             <span className="hidden text-sm font-medium text-foreground sm:inline-block">
-              {user?.name || "User"}
+              {formatDisplayName(user?.name)}
             </span>
             <div className="relative h-8 w-8 overflow-hidden rounded-full cursor-pointer">
               {user?.avatar ? (
@@ -294,11 +310,11 @@ export default function Header() {
                     </svg>
                   )}
                 </div>
-                <h3 className="text-white font-semibold text-lg">{user?.name || "User"}</h3>
+                <h3 className="text-white font-semibold text-lg">{formatDisplayName(user?.name)}</h3>
               </div>
               <div className="bg-gray-50 px-4 py-4">
                 <p className="text-xs text-gray-600">Logged in as</p>
-                <p className="truncate text-sm font-bold text-gray-900">{user?.name || "User"}</p>
+                <p className="truncate text-sm font-bold text-gray-900">{formatDisplayName(user?.name)}</p>
                 <p className="truncate text-xs text-gray-500">{user?.email || ""}</p>
               </div>
               <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">

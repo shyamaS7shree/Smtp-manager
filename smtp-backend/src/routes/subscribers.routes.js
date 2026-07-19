@@ -8,6 +8,7 @@ const router = express.Router();
 // ── Format subscriber row ──────────────────────────────────────
 const fmt = (r) => ({
   subscriber_uid: r.uid,
+  list_uid:       r.list_uid,
   email:          r.email,
   first_name:     r.first_name,
   last_name:      r.last_name,
@@ -342,6 +343,107 @@ router.get('/get-unconfirmed-subscribers', protect, async (req, res) => {
     return res.json({ status: 'success', data: { count, records: rows.map(fmt) } });
   } catch (e) {
     return res.status(500).json({ status: 'error', message: 'Failed to fetch unconfirmed subscribers' });
+  }
+});
+
+// ── GET /api/get-global-subscribers ───────────────────────────
+router.get('/get-global-subscribers', protect, async (req, res) => {
+  try {
+    const { 
+      page_number = 1, 
+      per_page = 100,
+      list_uid,
+      status,
+      source,
+      email,
+      ip_address,
+      subscriber_uid,
+      date_added_start,
+      date_added_end,
+      in_the_last_days
+    } = req.query;
+
+    const limit = parseInt(per_page);
+    const offset = (parseInt(page_number) - 1) * limit;
+
+    // First get all list IDs owned by this user
+    const listQuery = 'SELECT id, name, uid FROM lists WHERE user_id = $1';
+    const listRes = await pool.query(listQuery, [req.user.id]);
+    if (!listRes.rows.length) {
+      return res.json({ status: 'success', data: { count: 0, records: [] } });
+    }
+    
+    // Map list ids to their names for the response
+    const listNameMap = {};
+    const listIdMap = {};
+    const listIds = listRes.rows.map(r => {
+      listNameMap[r.uid] = r.name;
+      listIdMap[r.id] = r.uid;
+      return r.id;
+    });
+
+    let conditions = ['s.list_id = ANY($1::int[])'];
+    let params = [listIds];
+
+    if (list_uid) {
+      conditions.push(`s.list_uid = $${params.length + 1}`);
+      params.push(list_uid);
+    }
+    if (status) {
+      conditions.push(`s.status = $${params.length + 1}`);
+      params.push(status.toLowerCase());
+    }
+    if (source) {
+      conditions.push(`s.source = $${params.length + 1}`);
+      params.push(source.toLowerCase());
+    }
+    if (email) {
+      conditions.push(`s.email ILIKE $${params.length + 1}`);
+      params.push(`%${email}%`);
+    }
+    if (ip_address) {
+      conditions.push(`s.ip_address ILIKE $${params.length + 1}`);
+      params.push(`%${ip_address}%`);
+    }
+    if (subscriber_uid) {
+      conditions.push(`s.uid = $${params.length + 1}`);
+      params.push(subscriber_uid);
+    }
+    if (in_the_last_days) {
+      conditions.push(`s.created_at >= NOW() - INTERVAL '${parseInt(in_the_last_days)} days'`);
+    } else {
+      if (date_added_start) {
+        conditions.push(`s.created_at >= $${params.length + 1}`);
+        params.push(date_added_start);
+      }
+      if (date_added_end) {
+        conditions.push(`s.created_at <= $${params.length + 1}`);
+        params.push(date_added_end + ' 23:59:59');
+      }
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const countRes = await pool.query(`SELECT COUNT(*) FROM subscribers s WHERE ${whereClause}`, params);
+    const count = parseInt(countRes.rows[0].count);
+
+    const dataRes = await pool.query(`
+      SELECT s.* 
+      FROM subscribers s
+      WHERE ${whereClause}
+      ORDER BY s.created_at DESC 
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `, [...params, limit, offset]);
+
+    const records = dataRes.rows.map(r => ({
+      ...fmt(r),
+      list_name: listNameMap[r.list_uid] || 'Unknown List'
+    }));
+
+    return res.json({ status: 'success', data: { count, records } });
+  } catch (e) {
+    console.error('💥 get-global-subscribers:', e);
+    return res.status(500).json({ status: 'error', message: 'Failed to fetch global subscribers' });
   }
 });
 
