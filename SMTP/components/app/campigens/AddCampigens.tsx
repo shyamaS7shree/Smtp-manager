@@ -181,7 +181,8 @@ function yn(v: any, fallback: "yes" | "no" = "no"): "yes" | "no" {
 }
 
 function formatSendAtUTC(d: Date) {
-  return d.toISOString().slice(0, 19).replace("T", " ");
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 const CAMPAIGN_TYPE_MAP: Record<FormData["type"], string> = {
@@ -189,7 +190,7 @@ const CAMPAIGN_TYPE_MAP: Record<FormData["type"], string> = {
   Autoresponder: "autoresponder",
 };
 
-export default function CreateCampaignPage() {
+export default function CreateCampaignPage({ defaultType }: { defaultType?: "Regular" | "Autoresponder" } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editIdRaw = searchParams?.get("edit") || null;
@@ -212,7 +213,18 @@ export default function CreateCampaignPage() {
   const [showChangeTemplateModal, setShowChangeTemplateModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [availableLists, setAvailableLists] = useState<ListType[]>([]);
-  const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
+  const [availableSegments, setAvailableSegments] = useState<Array<{ segment_uid: string; name: string }>>([]);
+  const [formData, setFormData] = useState<FormData>(() => ({
+    ...DEFAULT_FORM,
+    type: defaultType || "Regular",
+  }));
+
+  useEffect(() => {
+    if (defaultType) {
+      setFormData((prev) => ({ ...prev, type: defaultType }));
+    }
+  }, [defaultType]);
+
   const [pageError, setPageError] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
@@ -228,6 +240,47 @@ export default function CreateCampaignPage() {
   const [selectedTemplateUid, setSelectedTemplateUid] = useState<string>("");
   const [applyingTemplate, setApplyingTemplate] = useState(false);
 
+  const [showFileManagerModal, setShowFileManagerModal] = useState(false);
+  const [pickerFiles, setPickerFiles] = useState<any[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+
+  const openFileManagerPicker = async () => {
+    setShowFileManagerModal(true);
+    setPickerLoading(true);
+    try {
+      const resolvedToken = userInfo.token || (() => {
+        try {
+          const s = JSON.parse(localStorage.getItem("userSession") || "{}");
+          return s?.token || "";
+        } catch { return ""; }
+      })();
+      const res = await fetch("/api/files", {
+        headers: { Authorization: `Bearer ${resolvedToken}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setPickerFiles(Array.isArray(json?.data) ? json.data : []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const insertImageFromPicker = (url: string, alt: string) => {
+    const imgHtml = `<img src="${url}" alt="${alt}" style="max-width: 100%; height: auto;" />`;
+    setFormData((prev) => {
+      const current = prev.content || "";
+      const updated = current ? `${current}<br/><img src="${url}" alt="${alt}" style="max-width: 100%; height: auto;" />` : imgHtml;
+      if (editorRef.current && !isSourceMode) {
+        editorRef.current.innerHTML = updated;
+      }
+      return { ...prev, content: updated };
+    });
+    setShowFileManagerModal(false);
+  };
+
   const editorRef = useRef<HTMLDivElement | null>(null);
   const initOnceRef = useRef(false);
   const listsLoadingRef = useRef(false);
@@ -236,7 +289,12 @@ export default function CreateCampaignPage() {
   const isMountedRef = useRef(false);
 
   function handleCloseForm() {
-    router.push("/campaigns");
+    const targetUrl = formData.type === "Autoresponder" ? "/campaigns/autoresponders" : "/campaigns/regular";
+    if (typeof window !== "undefined") {
+      setTimeout(() => {
+        router.push(targetUrl);
+      }, 0);
+    }
   }
 
   function handleInputChange(field: keyof FormData, value: string) {
@@ -275,21 +333,35 @@ export default function CreateCampaignPage() {
   }
 
   function insertTag(tag: string) {
-    if (!activeTagField) return;
-    setFormData((prev) => ({
-      ...prev,
-      [activeTagField]: ((prev[activeTagField as keyof FormData] || "") as string) + tag,
-    }));
+    const targetField = activeTagField || "content";
+    setFormData((prev) => {
+      const currentVal = (prev[targetField as keyof FormData] || "") as string;
+      const newVal = currentVal ? currentVal + " " + tag : tag;
+      if (targetField === "content" && editorRef.current && !isSourceMode) {
+        editorRef.current.innerHTML = newVal;
+      }
+      return {
+        ...prev,
+        [targetField]: newVal,
+      };
+    });
     setShowAvailableTags(false);
     setShowInfoModal(false);
   }
 
   function insertEmoji(emoji: string) {
-    if (!activeTagField) return;
-    setFormData((prev) => ({
-      ...prev,
-      [activeTagField]: ((prev[activeTagField as keyof FormData] || "") as string) + emoji,
-    }));
+    const targetField = activeTagField || "content";
+    setFormData((prev) => {
+      const currentVal = (prev[targetField as keyof FormData] || "") as string;
+      const newVal = currentVal + emoji;
+      if (targetField === "content" && editorRef.current && !isSourceMode) {
+        editorRef.current.innerHTML = newVal;
+      }
+      return {
+        ...prev,
+        [targetField]: newVal,
+      };
+    });
     setShowEmojiPicker(false);
   }
 
@@ -330,8 +402,11 @@ export default function CreateCampaignPage() {
     return Object.keys(errors).length === 0;
   }
 
-  function handleListChange(listUid: string) {
+  async function handleListChange(listUid: string) {
     handleInputChange("list", listUid);
+    handleInputChange("segment", "Choose");
+    setAvailableSegments([]);
+
     const selected = availableLists.find((l) => l.id === listUid);
     if (selected?.defaults) {
       setFormData((prev) => ({
@@ -341,6 +416,32 @@ export default function CreateCampaignPage() {
         replyTo: prev.replyTo || selected.defaults?.reply_to || prev.replyTo,
         subject: prev.subject || selected.defaults?.subject || prev.subject,
       }));
+    }
+
+    if (listUid && listUid !== "Choose") {
+      try {
+        const resolvedToken = userInfo.token || (() => {
+          try {
+            const s = JSON.parse(localStorage.getItem("userSession") || "{}");
+            return s?.token || s?.access_token || "";
+          } catch { return ""; }
+        })();
+
+        const res = await fetch(`/api/get-all-segments?list_uid=${encodeURIComponent(listUid)}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${resolvedToken}`,
+            Accept: "application/json",
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const records = data?.data?.records || data?.records || [];
+          setAvailableSegments(records);
+        }
+      } catch (err) {
+        console.error("Failed to fetch segments for list", listUid, err);
+      }
     }
   }
 
@@ -572,7 +673,13 @@ const applySelectedTemplate = async () => {
     if (isEditorFocused.current) return;
     const html = formData.content || "";
     if (editorRef.current.innerHTML !== html) editorRef.current.innerHTML = html;
-  }, [formData.content, isSourceMode]);
+  }, [formData.content, isSourceMode, activeFormTab]);
+
+  useEffect(() => {
+    if (activeFormTab === "Template" && editorRef.current && !isSourceMode) {
+      editorRef.current.innerHTML = formData.content || "";
+    }
+  }, [activeFormTab, isSourceMode]);
 
   useEffect(() => {
     if (!editId) return;
@@ -932,10 +1039,18 @@ const applySelectedTemplate = async () => {
                     <div>
                       <Label className="text-sm font-medium dark:text-white text-gray-700">Segment</Label>
                       <Select value={formData.segment} onValueChange={(v) => handleInputChange("segment", v)}>
-                        <SelectTrigger className="mt-2 w-full h-10"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="mt-2 w-full h-10"><SelectValue placeholder="Choose segment" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Choose">Choose</SelectItem>
-                          <SelectItem value="all">All</SelectItem>
+                          {availableSegments.length > 0 ? (
+                            availableSegments.map((seg) => (
+                              <SelectItem key={seg.segment_uid} value={seg.segment_uid}>
+                                {seg.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>No segments found for this list</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1061,7 +1176,7 @@ const applySelectedTemplate = async () => {
                     <div className="flex items-center justify-between">
                       <Label className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-white">
                         Content
-                        <button type="button" onClick={() => { setInfoModalType("available_tags"); setShowInfoModal(true); }} className="text-xs text-blue-600 hover:text-blue-800 underline">[Available tags]</button>
+                        <button type="button" onClick={() => openAvailableTags("content")} className="text-xs text-blue-600 hover:text-blue-800 underline">[Available tags]</button>
                       </Label>
                     </div>
                     <div className="border rounded overflow-hidden">
@@ -1069,6 +1184,7 @@ const applySelectedTemplate = async () => {
                         <div className="flex flex-wrap items-center px-3 py-2 gap-1">
                           <button className={`h-7 px-2 text-xs border rounded-sm ${isSourceMode ? "bg-blue-500 text-white border-blue-500" : "text-gray-700 border-gray-300 hover:bg-gray-50"}`} onClick={() => setIsSourceMode(!isSourceMode)} type="button">📄 Source</button>
                           <button className="h-7 px-2 border border-gray-300 hover:bg-blue-50 text-xs rounded" disabled={isSourceMode} onClick={() => openAvailableTags("content")} type="button">Tags</button>
+                          <button className="h-7 px-2 border border-gray-300 hover:bg-blue-50 text-xs rounded flex items-center gap-1" disabled={isSourceMode} onClick={openFileManagerPicker} type="button">🖼️ File manager</button>
                         </div>
                       </div>
                       {isSourceMode ? (
@@ -1078,7 +1194,20 @@ const applySelectedTemplate = async () => {
                       )}
                     </div>
                     <div className="flex justify-end">
-                      <Button type="button" variant="outline" className="text-xs" onClick={() => handleInputChange("content", buildSimpleHtml())}>Use simple HTML</Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => {
+                          const simpleHtml = buildSimpleHtml();
+                          handleInputChange("content", simpleHtml);
+                          if (editorRef.current) {
+                            editorRef.current.innerHTML = simpleHtml;
+                          }
+                        }}
+                      >
+                        Use simple HTML
+                      </Button>
                     </div>
                   </div>
 
@@ -1273,6 +1402,39 @@ const applySelectedTemplate = async () => {
           <Button className="bg-blue-500 hover:bg-blue-600 text-white" onClick={() => setShowSuccessModal(false)}>Done</Button>
         </div>
       </ModalShell>
+
+      {/* File Manager Picker Modal */}
+      {showFileManagerModal && (
+        <ModalShell open={showFileManagerModal} title="Select Image from File Manager" onClose={() => setShowFileManagerModal(false)} widthClass="max-w-3xl">
+          {pickerLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading files...</div>
+          ) : pickerFiles.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 space-y-2">
+              <div>No files found in File Manager.</div>
+              <Button variant="outline" className="text-xs" onClick={() => { setShowFileManagerModal(false); setTimeout(() => router.push("/email-templates/file-manager"), 0); }}>Go to File Manager</Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-1">
+              {pickerFiles.map((file) => (
+                <div
+                  key={file.id || file.uid}
+                  onClick={() => insertImageFromPicker(file.url, file.name)}
+                  className="border border-gray-200 dark:border-gray-800 rounded-lg p-2 hover:border-blue-500 hover:shadow-md cursor-pointer transition-all bg-white dark:bg-zinc-800 flex flex-col items-center justify-between text-center group"
+                >
+                  <div className="h-24 w-full bg-gray-100 dark:bg-zinc-700 rounded overflow-hidden flex items-center justify-center mb-1">
+                    <img src={file.url} alt={file.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                  </div>
+                  <div className="text-xs font-medium truncate w-full text-gray-800 dark:text-gray-200" title={file.name}>{file.name}</div>
+                  <span className="text-[11px] text-blue-600 font-semibold mt-1">Insert Image</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end pt-3 border-t mt-3">
+            <Button variant="outline" onClick={() => setShowFileManagerModal(false)}>Cancel</Button>
+          </div>
+        </ModalShell>
+      )}
     </>
   );
 }

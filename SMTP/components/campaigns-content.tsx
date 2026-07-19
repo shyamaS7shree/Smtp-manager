@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   Mail,
@@ -11,6 +12,7 @@ import {
   Upload,
   RotateCcw,
   Check,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +64,7 @@ interface Campaign {
 
 export default function CampaignsContent() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("All Campaigns");
   const [showToggleColumns, setShowToggleColumns] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -151,7 +154,8 @@ export default function CampaignsContent() {
   };
 
   const handleRefresh = () => {
-    window.location.reload();
+    setLoading(true);
+    fetchCampaigns();
   };
 
   const handleExport = () => {
@@ -321,26 +325,36 @@ export default function CampaignsContent() {
     }
   };
 
+  const templatesCacheRef = useRef<any[] | null>(null);
+
   const fetchTemplateName = async (templateUid: string) => {
+    if (!templateUid || templateUid === "-") return "-";
     try {
-      const res = await fetch(
-        `/api/get-all-templates?page_number=1&per_page=50`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token()}`,
-            Accept: "application/json",
+      if (!templatesCacheRef.current) {
+        const cached = localStorage.getItem("cachedTemplates");
+        if (cached) templatesCacheRef.current = JSON.parse(cached);
+      }
+      if (!templatesCacheRef.current) {
+        const res = await fetch(
+          `/api/get-all-templates?page_number=1&per_page=100`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token()}`,
+              Accept: "application/json",
+            },
           },
-        },
-      );
-      const data = await res.json();
-      const templates = data?.data?.records || data?.records || [];
-      const found = templates.find(
+        );
+        const data = await res.json();
+        const templates = data?.data?.records || data?.records || [];
+        templatesCacheRef.current = templates;
+        try { localStorage.setItem("cachedTemplates", JSON.stringify(templates)); } catch {}
+      }
+      const found = (templatesCacheRef.current || []).find(
         (t: any) => String(t.template_uid) === String(templateUid),
       );
       return found?.name ?? "-";
     } catch (e) {
-      console.warn("template fetch failed:", templateUid);
       return "-";
     }
   };
@@ -382,8 +396,20 @@ export default function CampaignsContent() {
       const records = data?.data?.records || [];
 
       if (!Array.isArray(records) || records.length === 0) {
-        setCampaigns([]);
-        localStorage.removeItem("cachedCampaigns");
+        const cached = localStorage.getItem("cachedCampaigns");
+        const cachedAr = localStorage.getItem("cachedAutoresponders");
+        const combined = [
+          ...(cached ? JSON.parse(cached) : []),
+          ...(cachedAr ? JSON.parse(cachedAr) : []),
+        ];
+        if (combined.length > 0) {
+          // Remove duplicates by uniqueId or id
+          const uniqueMap = new Map();
+          combined.forEach((c) => uniqueMap.set(c.uniqueId || c.id, c));
+          setCampaigns(Array.from(uniqueMap.values()));
+        } else {
+          setCampaigns([]);
+        }
         return;
       }
 
@@ -477,6 +503,8 @@ export default function CampaignsContent() {
       localStorage.setItem("cachedCampaigns", JSON.stringify(withStats));
     } catch (error) {
       console.error("fetchCampaigns error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -629,16 +657,26 @@ export default function CampaignsContent() {
     }
   };
 
-  const formatDateTime = (value: string) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return value;
+  const formatDateTime = (value: string | Date | undefined | null) => {
+    if (!value || value === "-") return "-";
+    let date: Date;
+    if (value instanceof Date) {
+      date = value;
+    } else {
+      let str = String(value).trim();
+      if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}/.test(str)) {
+        str = str.replace(" ", "T");
+      }
+      date = new Date(str);
+    }
+    if (isNaN(date.getTime())) return String(value);
     return date.toLocaleString([], {
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
   };
 
@@ -1151,12 +1189,22 @@ export default function CampaignsContent() {
                     </th>
                   ))}
               </tr>
-              <tr className="border-b bg-gray-50">
-                <th className="p-2"></th>
+              <tr className="border-b border-slate-200/80 bg-slate-50/80 transition-colors">
+                <th className="p-2 text-center align-middle">
+                  {(searchFilters.id || searchFilters.campaignName || searchFilters.type !== "all" || searchFilters.status !== "all") && (
+                    <button
+                      onClick={() => setSearchFilters({ ...searchFilters, id: "", campaignName: "", type: "all", status: "all" })}
+                      title="Clear all filters"
+                      className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </th>
                 {columns
                   .filter((col) => visibleColumns[col])
                   .map((column) => (
-                    <th key={`filter-${column}`} className="p-2 min-w-[120px]">
+                    <th key={`filter-${column}`} className="p-2 min-w-[120px] align-middle">
                       {column === "Status" ? (
                         <Select
                           value={searchFilters.status}
@@ -1167,14 +1215,20 @@ export default function CampaignsContent() {
                             })
                           }
                         >
-                          <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="All" />
+                          <SelectTrigger className="h-8.5 w-full bg-white text-xs font-normal text-slate-700 border-slate-200/90 rounded-lg shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-300 transition-all">
+                            <SelectValue placeholder="All Statuses" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="Draft">Draft</SelectItem>
-                            <SelectItem value="Sent">Sent</SelectItem>
-                            <SelectItem value="Paused">Paused</SelectItem>
+                          <SelectContent className="rounded-xl border-slate-200 shadow-lg">
+                            <SelectItem value="all" className="text-xs">All Statuses</SelectItem>
+                            <SelectItem value="Draft" className="text-xs">
+                              <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400"></span>Draft</span>
+                            </SelectItem>
+                            <SelectItem value="Sent" className="text-xs">
+                              <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>Sent</span>
+                            </SelectItem>
+                            <SelectItem value="Paused" className="text-xs">
+                              <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400"></span>Paused</span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       ) : column === "Type" ? (
@@ -1184,43 +1238,47 @@ export default function CampaignsContent() {
                             setSearchFilters({ ...searchFilters, type: value })
                           }
                         >
-                          <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="All" />
+                          <SelectTrigger className="h-8.5 w-full bg-white text-xs font-normal text-slate-700 border-slate-200/90 rounded-lg shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-300 transition-all">
+                            <SelectValue placeholder="All Types" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="Regular">Regular</SelectItem>
-                            <SelectItem value="Autoresponder">
-                              Autoresponder
-                            </SelectItem>
+                          <SelectContent className="rounded-xl border-slate-200 shadow-lg">
+                            <SelectItem value="all" className="text-xs">All Types</SelectItem>
+                            <SelectItem value="Regular" className="text-xs">Regular</SelectItem>
+                            <SelectItem value="Autoresponder" className="text-xs">Autoresponder</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : column === "ID" ? (
-                        <Input
-                          className="h-8 w-full"
-                          placeholder="Filter ID"
-                          value={searchFilters.id}
-                          onChange={(e) =>
-                            setSearchFilters({
-                              ...searchFilters,
-                              id: e.target.value,
-                            })
-                          }
-                        />
+                        <div className="relative flex items-center">
+                          <Search className="absolute left-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                          <Input
+                            className="h-8.5 w-full pl-8 pr-2 text-xs bg-white text-slate-800 placeholder:text-slate-400 border-slate-200/90 shadow-2xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-300 transition-all"
+                            placeholder="Filter ID..."
+                            value={searchFilters.id}
+                            onChange={(e) =>
+                              setSearchFilters({
+                                ...searchFilters,
+                                id: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
                       ) : column === "Campaign name" ? (
-                        <Input
-                          className="h-8 w-full"
-                          placeholder="Filter Campaign"
-                          value={searchFilters.campaignName}
-                          onChange={(e) =>
-                            setSearchFilters({
-                              ...searchFilters,
-                              campaignName: e.target.value,
-                            })
-                          }
-                        />
+                        <div className="relative flex items-center">
+                          <Search className="absolute left-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                          <Input
+                            className="h-8.5 w-full pl-8 pr-2 text-xs bg-white text-slate-800 placeholder:text-slate-400 border-slate-200/90 shadow-2xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-300 transition-all"
+                            placeholder="Search campaign..."
+                            value={searchFilters.campaignName}
+                            onChange={(e) =>
+                              setSearchFilters({
+                                ...searchFilters,
+                                campaignName: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
                       ) : (
-                        <div className="h-8"></div>
+                        <div className="h-8.5 flex items-center justify-center text-slate-300 text-xs font-light pointer-events-none select-none">—</div>
                       )}
                     </th>
                   ))}
@@ -1241,11 +1299,22 @@ export default function CampaignsContent() {
                         .toLowerCase()
                         .includes(searchFilters.campaignName.toLowerCase())) &&
                     (searchFilters.type === "all" ||
-                      campaign.type === searchFilters.type) &&
+                      String(campaign.type || '').toLowerCase() === String(searchFilters.type || '').toLowerCase()) &&
                     (searchFilters.status === "all" ||
-                      campaign.status === searchFilters.status)
+                      String(campaign.status || '').toLowerCase() === String(searchFilters.status || '').toLowerCase())
                   );
                 });
+
+                if (loading) {
+                  return [1, 2, 3, 4, 5].map((i) => (
+                    <tr key={`skel-${i}`} className="border-b border-gray-200 animate-pulse">
+                      <td className="p-3"><Skeleton className="h-4 w-4 bg-slate-200" /></td>
+                      {columns.filter((col) => visibleColumns[col]).map((_, idx) => (
+                        <td key={idx} className="p-3"><Skeleton className="h-4 w-full bg-slate-200" /></td>
+                      ))}
+                    </tr>
+                  ));
+                }
 
                 return filteredCampaigns.length > 0 ? (
                   filteredCampaigns.map((campaign) => (

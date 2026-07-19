@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { Ban, PlusCircle, Upload, RefreshCw, X, Download, Trash2, ChevronLeft, ChevronRight, Edit, SlidersHorizontal } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -605,7 +606,17 @@ export default function EmailBlacklistContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.map((item, index) => (
+                  {isLoading ? (
+                    [1, 2, 3, 4, 5].map((i) => (
+                      <tr key={`skel-${i}`} className="border-b border-gray-100 animate-pulse">
+                        {visibleColumns.email && <td className="px-4 py-3"><Skeleton className="h-4 w-36 bg-gray-200" /></td>}
+                        {visibleColumns.reason && <td className="px-4 py-3"><Skeleton className="h-4 w-48 bg-gray-200" /></td>}
+                        {visibleColumns.dateAdded && <td className="px-4 py-3"><Skeleton className="h-4 w-28 bg-gray-200" /></td>}
+                        <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-12 mx-auto bg-gray-200" /></td>
+                      </tr>
+                    ))
+                  ) : (
+                    filteredData.map((item, index) => (
                     <tr key={item.uid} className={`border-b border-gray-100 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                       {visibleColumns.email && (
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">
@@ -646,14 +657,8 @@ export default function EmailBlacklistContent() {
                         </div>
                       </td>
                     </tr>
-                  ))}
-                  {filteredData.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="p-4 text-center text-sm text-gray-500">
-                        {isLoading ? "Loading blacklist..." : "No blacklisted emails found."}
-                      </td>
-                    </tr>
-                  )}
+                  ))
+                )}
                 </tbody>
               </table>
             </div>

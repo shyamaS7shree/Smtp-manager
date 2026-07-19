@@ -12,6 +12,7 @@ import {
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { token } from "@/components/common/http";
 
@@ -301,6 +302,18 @@ export default function EmailTemplatesComponent() {
 
             {/* Body */}
             <div className="border-t border-gray-200">
+              {loading && (
+                [1, 2, 3, 4].map((i) => (
+                  <div key={`skel-${i}`} className="grid grid-cols-12 gap-3 px-4 py-6 border-b border-gray-100 items-center animate-pulse">
+                    <div className="col-span-2"><Skeleton className="h-20 w-24 rounded-md bg-slate-200" /></div>
+                    <div className="col-span-3 space-y-2"><Skeleton className="h-4 w-32 bg-slate-200" /><Skeleton className="h-3 w-20 bg-slate-200" /></div>
+                    <div className="col-span-2"><Skeleton className="h-4 w-24 bg-slate-200" /></div>
+                    <div className="col-span-2"><Skeleton className="h-4 w-24 bg-slate-200" /></div>
+                    <div className="col-span-1"><Skeleton className="h-4 w-12 bg-slate-200" /></div>
+                  </div>
+                ))
+              )}
+
               {!loading && !error && filtered.length === 0 && (
                 <div className="py-16 text-center text-gray-500">
                   No templates found.

@@ -1221,6 +1221,19 @@ export default function EmailListManager() {
     } catch (error) { console.log(error); }
   };
 
+  const handleRefresh = async () => {
+    try {
+      setIsLoading(true);
+      if (userSession) {
+        await fetchListsFromAPI(userSession);
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleArchiveList = (id: string) => {
     setListToArchive(id);
     setArchiveConfirmOpen(true);

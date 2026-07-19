@@ -13,7 +13,7 @@ export default function Page() {
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <SidebarNav />
       </div>
 

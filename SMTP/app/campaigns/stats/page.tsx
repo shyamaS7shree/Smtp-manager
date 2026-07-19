@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import SidebarNav from "@/components/sidebar-nav";
 import Header from "@/components/common/header";
-import CreateCampaignPage from "@/components/app/campigens/AddCampigens";
+import CampaignsStatsContent from "@/components/campaigns-stats-content";
 
-export default function Page() {
+export default function CampaignsStatsPage() {
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop Sidebar */}
@@ -17,9 +17,11 @@ export default function Page() {
         <Header />
 
         {/* Page Content */}
-        <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading campaign wizard...</div>}>
-          <CreateCampaignPage defaultType="Autoresponder" />
-        </Suspense>
+        <div className="flex-1 overflow-auto">
+          <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading stats...</div>}>
+            <CampaignsStatsContent />
+          </Suspense>
+        </div>
       </div>
     </div>
   );

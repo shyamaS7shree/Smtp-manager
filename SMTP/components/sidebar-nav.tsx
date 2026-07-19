@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import {
@@ -62,7 +62,9 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
     return () => clearInterval(timer)
   }, [])
 
-  // Auto-expand the sidebar item based on current path
+  const prevPathnameRef = useRef(pathname);
+
+  // Auto-expand sidebar item & auto-close mobile drawer on route change
   useEffect(() => {
     if (pathname) {
       if (pathname.startsWith("/lists") || pathname.startsWith("/subscribers")) {
@@ -81,7 +83,14 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
         setExpandedItems((prev) => ({ ...prev, Surveys: true }))
       }
     }
-  }, [pathname])
+
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname;
+      if (isMobile && onClose) {
+        onClose();
+      }
+    }
+  }, [pathname, isMobile, onClose])
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => ({
@@ -109,21 +118,16 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
       subItems: [
         { label: "All campaigns", href: "/campaigns" },
         { label: "Regular campaigns", href: "/campaigns/regular" },
-        //{ label: "Autoresponders", href: "/campaigns/autoresponders" }, [[[mailwizz not provieded api for all]]]
-        //{ label: "Groups", href: "/campaigns/groups" },
-        //{ label: "Send groups", href: "/campaigns/send-groups" },
-        //{ label: "Stats", href: "/campaigns/stats" },
-        //{ label: "Custom tags", href: "/campaigns/tags" },
-        //{ label: "Abuse complaints", href: "/campaigns/abuse-complaints" },
-        //{ label: "Abuse reports", href: "/abuse-reports" },
+        { label: "Autoresponders", href: "/campaigns/autoresponders" },
+        { label: "Stats", href: "/campaigns/stats" },
       ],
     },
     {
       icon: <FileText className="h-5 w-5" />,
       label: "Email templates",
       subItems: [
-        //{ label: "Categories", href: "/email-templates/categories" },[[[mailwizz not provieded api for all]]]
         { label: "Templates", href: "/email-templates/templates" },
+        { label: "File manager", href: "/email-templates/file-manager" },
       ],
     },
     /*{

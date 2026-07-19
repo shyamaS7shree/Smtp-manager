@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   Mail,
@@ -11,6 +12,7 @@ import {
   Upload,
   RotateCcw,
   Check,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +64,7 @@ interface Campaign {
 
 export default function CampaignsContent() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("All Campaigns");
   const [showToggleColumns, setShowToggleColumns] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -146,7 +149,8 @@ export default function CampaignsContent() {
   };
 
   const handleRefresh = () => {
-    window.location.reload();
+    setLoading(true);
+    fetchCampaigns();
   };
 
   const handleExport = () => {
@@ -316,29 +320,39 @@ export default function CampaignsContent() {
     }
   };
 
+let regularTemplatesCache: any[] | null = null;
+
 const fetchTemplateName = async (templateUid: string) => {
+  if (!templateUid || templateUid === "-") return "-";
   try {
-    const res = await fetch(
-      `/api/get-all-templates?page_number=1&per_page=50`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token()}`,
-          Accept: 'application/json',
+    if (!regularTemplatesCache) {
+      const cached = localStorage.getItem("cachedTemplates");
+      if (cached) regularTemplatesCache = JSON.parse(cached);
+    }
+    if (!regularTemplatesCache) {
+      const res = await fetch(
+        `/api/get-all-templates?page_number=1&per_page=100`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token()}`,
+            Accept: "application/json",
+          },
         },
-      }
-    )
-    const data = await res.json()
-    const templates = data?.data?.records || data?.records || []
-    const found = templates.find(
-      (t: any) => String(t.template_uid) === String(templateUid)
-    )
-    return found?.name ?? '-'
+      );
+      const data = await res.json();
+      const templates = data?.data?.records || data?.records || [];
+      regularTemplatesCache = templates;
+      try { localStorage.setItem("cachedTemplates", JSON.stringify(templates)); } catch {}
+    }
+    const found = (regularTemplatesCache || []).find(
+      (t: any) => String(t.template_uid) === String(templateUid),
+    );
+    return found?.name ?? "-";
   } catch (e) {
-    console.warn('template fetch failed:', templateUid)
-    return '-'
+    return "-";
   }
-}
+};
 
 const fetchOneCampaign = async (campaignUid: string) => {
   try {
@@ -423,7 +437,7 @@ const fetchCampaigns = async () => {
           name: String(detail?.name ?? item?.name ?? 'Untitled'),
           type: String(detail?.type ?? item?.type ?? 'Regular'),
           status: String(detail?.status ?? item?.status ?? 'Draft'),
-          list: detail?.list?.name ?? '-',
+          list: detail?.list?.name || item?.list?.name || '-',
           list_uid: detail?.list?.list_uid ?? '',
           listId: detail?.list?.list_uid ?? '',
           subject: detail?.subject ?? '-',
@@ -466,6 +480,8 @@ const fetchCampaigns = async () => {
 
   } catch (error) {
     console.error('fetchCampaigns error:', error)
+  } finally {
+    setLoading(false);
   }
 }
 
@@ -620,48 +636,47 @@ const fetchCampaigns = async () => {
     }
   };
 
-  const formatDateTime = (value: string) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return value;
+  const formatDateTime = (value: string | Date | undefined | null) => {
+    if (!value || value === "-") return "-";
+    let date: Date;
+    if (value instanceof Date) {
+      date = value;
+    } else {
+      let str = String(value).trim();
+      if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}/.test(str)) {
+        str = str.replace(" ", "T");
+      }
+      date = new Date(str);
+    }
+    if (isNaN(date.getTime())) return String(value);
     return date.toLocaleString([], {
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
   };
 
   const resolveCampaignListName = (campaign: Campaign) => {
+    if (campaign.list && campaign.list !== "-" && campaign.list !== campaign.list_uid) {
+      return campaign.list;
+    }
     try {
       const raw = localStorage.getItem("cachedLists");
-      if (!raw) return campaign.list || "-";
-
-      const lists = JSON.parse(raw).lists || [];
-      const keys = [campaign.listId, campaign.list_uid, campaign.list].filter(
-        Boolean,
-      );
-
-      const found = lists.find((l: any) =>
-        keys.some((key) =>
-          [l.id, l.uniqueId, l.uid, l.list_uid].some(
-            (v: any) => v && String(v) === String(key),
-          ),
-        ),
-      );
-
-      if (found) return found.name || found.displayName || "-";
+      if (raw) {
+        const lists = JSON.parse(raw).lists || [];
+        const keys = [campaign.listId, campaign.list_uid, campaign.list].filter(Boolean);
+        const found = lists.find((l: any) =>
+          keys.some((key) =>
+            [l.id, l.uniqueId, l.uid, l.list_uid].some((v: any) => v && String(v) === String(key))
+          )
+        );
+        if (found) return found.name || found.displayName || "-";
+      }
     } catch {}
-
-    if (
-      campaign.list &&
-      campaign.list !== "-" &&
-      campaign.list !== campaign.list_uid
-    )
-      return campaign.list;
-
-    return "-";
+    return campaign.list && campaign.list !== campaign.list_uid ? campaign.list : "-";
   };
 
   // Function to calculate campaign performance metrics
@@ -753,8 +768,8 @@ const fetchCampaigns = async () => {
     <div className="flex-1 space-y-4 p-4 md:p-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <Mail className="h-6 w-6" />
-          <h1 className="text-2xl font-bold">Campaigns</h1>
+          <Mail className="h-6 w-6 text-blue-600" />
+          <h1 className="text-2xl font-bold">Regular campaigns</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <DropdownMenu
@@ -826,12 +841,6 @@ const fetchCampaigns = async () => {
             className="bg-blue-500 hover:bg-blue-600 text-white"
           >
             Export
-          </Button>
-          <Button
-            onClick={() => setShowImportShareCodeModal(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            Import from share code
           </Button>
           <Button
             onClick={handleRefresh}
@@ -1152,12 +1161,22 @@ const fetchCampaigns = async () => {
                     </th>
                   ))}
               </tr>
-              <tr className="border-b bg-gray-50">
-                <th className="p-2"></th>
+              <tr className="border-b border-slate-200/80 bg-slate-50/80 transition-colors">
+                <th className="p-2 text-center align-middle">
+                  {(searchFilters.id || searchFilters.campaignName || searchFilters.type !== "all" || searchFilters.status !== "all") && (
+                    <button
+                      onClick={() => setSearchFilters({ ...searchFilters, id: "", campaignName: "", type: "all", status: "all" })}
+                      title="Clear all filters"
+                      className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </th>
                 {columns
                   .filter((col) => visibleColumns[col])
                   .map((column) => (
-                    <th key={`filter-${column}`} className="p-2 min-w-[120px]">
+                    <th key={`filter-${column}`} className="p-2 min-w-[120px] align-middle">
                       {column === "Status" ? (
                         <Select
                           value={searchFilters.status}
@@ -1168,14 +1187,20 @@ const fetchCampaigns = async () => {
                             })
                           }
                         >
-                          <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="All" />
+                          <SelectTrigger className="h-8.5 w-full bg-white text-xs font-normal text-slate-700 border-slate-200/90 rounded-lg shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-300 transition-all">
+                            <SelectValue placeholder="All Statuses" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="Draft">Draft</SelectItem>
-                            <SelectItem value="Sent">Sent</SelectItem>
-                            <SelectItem value="Paused">Paused</SelectItem>
+                          <SelectContent className="rounded-xl border-slate-200 shadow-lg">
+                            <SelectItem value="all" className="text-xs">All Statuses</SelectItem>
+                            <SelectItem value="Draft" className="text-xs">
+                              <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400"></span>Draft</span>
+                            </SelectItem>
+                            <SelectItem value="Sent" className="text-xs">
+                              <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>Sent</span>
+                            </SelectItem>
+                            <SelectItem value="Paused" className="text-xs">
+                              <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400"></span>Paused</span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       ) : column === "Type" ? (
@@ -1185,43 +1210,47 @@ const fetchCampaigns = async () => {
                             setSearchFilters({ ...searchFilters, type: value })
                           }
                         >
-                          <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="All" />
+                          <SelectTrigger className="h-8.5 w-full bg-white text-xs font-normal text-slate-700 border-slate-200/90 rounded-lg shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-300 transition-all">
+                            <SelectValue placeholder="All Types" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="Regular">Regular</SelectItem>
-                            <SelectItem value="Autoresponder">
-                              Autoresponder
-                            </SelectItem>
+                          <SelectContent className="rounded-xl border-slate-200 shadow-lg">
+                            <SelectItem value="all" className="text-xs">All Types</SelectItem>
+                            <SelectItem value="Regular" className="text-xs">Regular</SelectItem>
+                            <SelectItem value="Autoresponder" className="text-xs">Autoresponder</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : column === "ID" ? (
-                        <Input
-                          className="h-8 w-full"
-                          placeholder="Filter ID"
-                          value={searchFilters.id}
-                          onChange={(e) =>
-                            setSearchFilters({
-                              ...searchFilters,
-                              id: e.target.value,
-                            })
-                          }
-                        />
+                        <div className="relative flex items-center">
+                          <Search className="absolute left-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                          <Input
+                            className="h-8.5 w-full pl-8 pr-2 text-xs bg-white text-slate-800 placeholder:text-slate-400 border-slate-200/90 shadow-2xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-300 transition-all"
+                            placeholder="Filter ID..."
+                            value={searchFilters.id}
+                            onChange={(e) =>
+                              setSearchFilters({
+                                ...searchFilters,
+                                id: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
                       ) : column === "Campaign name" ? (
-                        <Input
-                          className="h-8 w-full"
-                          placeholder="Filter Campaign"
-                          value={searchFilters.campaignName}
-                          onChange={(e) =>
-                            setSearchFilters({
-                              ...searchFilters,
-                              campaignName: e.target.value,
-                            })
-                          }
-                        />
+                        <div className="relative flex items-center">
+                          <Search className="absolute left-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                          <Input
+                            className="h-8.5 w-full pl-8 pr-2 text-xs bg-white text-slate-800 placeholder:text-slate-400 border-slate-200/90 shadow-2xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-slate-300 transition-all"
+                            placeholder="Search campaign..."
+                            value={searchFilters.campaignName}
+                            onChange={(e) =>
+                              setSearchFilters({
+                                ...searchFilters,
+                                campaignName: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
                       ) : (
-                        <div className="h-8"></div>
+                        <div className="h-8.5 flex items-center justify-center text-slate-300 text-xs font-light pointer-events-none select-none">—</div>
                       )}
                     </th>
                   ))}
@@ -1242,11 +1271,22 @@ const fetchCampaigns = async () => {
                         .toLowerCase()
                         .includes(searchFilters.campaignName.toLowerCase())) &&
                     (searchFilters.type === "all" ||
-                      campaign.type === searchFilters.type) &&
+                      String(campaign.type || '').toLowerCase() === String(searchFilters.type || '').toLowerCase()) &&
                     (searchFilters.status === "all" ||
-                      campaign.status === searchFilters.status)
+                      String(campaign.status || '').toLowerCase() === String(searchFilters.status || '').toLowerCase())
                   );
                 });
+
+                if (loading) {
+                  return [1, 2, 3, 4, 5].map((i) => (
+                    <tr key={`skel-${i}`} className="border-b border-gray-200 animate-pulse">
+                      <td className="p-3"><Skeleton className="h-4 w-4 bg-slate-200" /></td>
+                      {columns.filter((col) => visibleColumns[col]).map((_, idx) => (
+                        <td key={idx} className="p-3"><Skeleton className="h-4 w-full bg-slate-200" /></td>
+                      ))}
+                    </tr>
+                  ));
+                }
 
                 return filteredCampaigns.length > 0 ? (
                   filteredCampaigns.map((campaign) => (
