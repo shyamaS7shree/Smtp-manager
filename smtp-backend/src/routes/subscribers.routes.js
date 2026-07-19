@@ -2,6 +2,7 @@ const express = require('express');
 const pool    = require('../config/db');
 const { protect }     = require('../middleware/auth');
 const { generateUid } = require('../helpers/uid');
+const { checkRealtimeBlacklist } = require('../helpers/blacklist');
 
 const router = express.Router();
 
@@ -97,7 +98,14 @@ router.get('/get-blacklisted-subscribers', protect, async (req, res) => {
 router.post('/create-a-subscriber', protect, async (req, res) => {
   try {
     const { list_uid, email, first_name, last_name, source = 'web', ip_address = '' } = req.body;
-    if (!list_uid || !email) return res.status(400).json({ status: 'error', message: 'list_uid and email are required' });
+    // 🛑 Real-Time Blacklist Check
+    const check = await checkRealtimeBlacklist(req.user.id, email, ip_address);
+    if (check.blocked) {
+      return res.status(403).json({
+        status: 'error',
+        message: `Cannot add subscriber: ${check.reason} (${check.type})`,
+      });
+    }
 
     // Verify list belongs to user and get opt_in setting
     const listRes = await pool.query('SELECT id, opt_in FROM lists WHERE uid = $1 AND user_id = $2', [list_uid, req.user.id]);

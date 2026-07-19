@@ -1,4 +1,7 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 
@@ -14,6 +17,7 @@ const toolsRoutes = require('./routes/tools.routes');
 const emailBlacklistRoutes = require('./routes/email-blacklist.routes');
 const suppressionRoutes = require('./routes/suppression-list.routes');
 const ipBlacklistRoutes = require('./routes/ip-blacklist.routes');
+const filesRoutes = require('./routes/files.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +30,10 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ── Static Files Serving ───────────────────────────────────────
+const uploadsPath = path.join(__dirname, '../public/uploads');
+app.use('/uploads', express.static(uploadsPath));
 
 // ── Health check ───────────────────────────────────────────────
 app.get('/', (req, res) => {
@@ -51,6 +59,7 @@ app.use('/api/tools', toolsRoutes);
 app.use('/api', emailBlacklistRoutes);
 app.use('/api', suppressionRoutes);
 app.use('/api', ipBlacklistRoutes);
+app.use('/api', filesRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────
 app.use((req, res) => {

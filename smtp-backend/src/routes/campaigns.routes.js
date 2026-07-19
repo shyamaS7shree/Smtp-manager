@@ -4,6 +4,8 @@ const pool       = require('../config/db');
 const { protect }     = require('../middleware/auth');
 const { generateUid } = require('../helpers/uid');
 
+const { checkRealtimeBlacklist } = require('../helpers/blacklist');
+
 const router = express.Router();
 
 // ── Format campaign row ────────────────────────────────────────
@@ -12,6 +14,10 @@ const fmt = (r) => ({
   campaign_id:  r.id,
   name:         r.name,
   type:         r.type,
+  group:        r.group_name || r.group || '',
+  send_group:   r.send_group || '',
+  event:        r.event || 'Subscribe',
+  time:         r.time || 'Immediately',
   status:       r.status,
   from_name:    r.from_name,
   from_email:   r.from_email,
@@ -19,10 +25,11 @@ const fmt = (r) => ({
   reply_to:     r.reply_to,
   subject:      r.subject,
   send_at:      r.send_at,
+  started_at:   r.started_at || r.send_at || r.created_at,
   sent_at:      r.sent_at,
-  list:         { list_uid: r.list_uid },
-  segment:      r.segment_uid ? { segment_uid: r.segment_uid } : null,
-  template:     { template_uid: r.template_uid },
+  list:         { list_uid: r.list_uid, name: r.list_name || r.list_display_name || '' },
+  segment:      r.segment_uid ? { segment_uid: r.segment_uid, name: r.segment_name || '' } : null,
+  template:     { template_uid: r.template_uid, name: r.template_name || '' },
   stats: {
     total_subscribers:     r.total_subscribers,
     processed_subscribers: r.processed_subscribers,
@@ -63,7 +70,17 @@ const sendCampaignEmails = async (campaign) => {
     );
 
     let sent = 0;
+    let blockedCount = 0;
+
     for (const sub of subscribers) {
+      // 🛑 Real-Time Check for Email Blacklist, Suppression List & IP Blacklist
+      const check = await checkRealtimeBlacklist(campaign.user_id, sub.email, sub.ip_address);
+      if (check.blocked) {
+        console.warn(`🛑 Real-Time Blocked: Email "${sub.email}" / IP "${sub.ip_address}" in ${check.type} (${check.reason})`);
+        blockedCount++;
+        continue;
+      }
+
       try {
         const html = (campaign.content || '')
           .replace(/\[FNAME\]/gi, sub.first_name || '')
@@ -90,11 +107,25 @@ const sendCampaignEmails = async (campaign) => {
        WHERE id = $3`,
       [subscribers.length, sent, campaign.id]
     );
-    console.log(`✅ Campaign "${campaign.name}" sent to ${sent}/${subscribers.length} subscribers.`);
+    console.log(`✅ Campaign "${campaign.name}" sent to ${sent}/${subscribers.length} subscribers. (Blocked by Real-Time Blacklists: ${blockedCount})`);
   } catch (err) {
     console.error('💥 sendCampaignEmails error:', err);
     await pool.query("UPDATE campaigns SET status = 'blocked' WHERE id = $1", [campaign.id]);
   }
+};
+
+const getFullCampaign = async (uid, userId) => {
+  const { rows } = await pool.query(
+    `SELECT c.*,
+            l.name AS list_name, l.display_name AS list_display_name,
+            t.name AS template_name
+     FROM campaigns c
+     LEFT JOIN lists l ON c.list_uid = l.uid
+     LEFT JOIN templates t ON c.template_uid = t.uid
+     WHERE c.uid = $1 AND c.user_id = $2`,
+    [uid, userId]
+  );
+  return rows.length ? fmt(rows[0]) : null;
 };
 
 // ── GET /api/get-all-campaigns ────────────────────────────────
@@ -103,13 +134,29 @@ router.get('/get-all-campaigns', protect, async (req, res) => {
     const page   = parseInt(req.query.page_number) || 1;
     const limit  = parseInt(req.query.per_page)    || 10;
     const offset = (page - 1) * limit;
+    const typeFilter = req.query.type;
 
-    const { rows } = await pool.query(
-      `SELECT *, COUNT(*) OVER() AS total_count
-       FROM campaigns WHERE user_id = $1
-       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
-      [req.user.id, limit, offset]
-    );
+    let query = `
+      SELECT c.*,
+             l.name AS list_name, l.display_name AS list_display_name,
+             t.name AS template_name,
+             COUNT(*) OVER() AS total_count
+      FROM campaigns c
+      LEFT JOIN lists l ON c.list_uid = l.uid
+      LEFT JOIN templates t ON c.template_uid = t.uid
+      WHERE c.user_id = $1
+    `;
+    const params = [req.user.id];
+
+    if (typeFilter && typeFilter !== 'all') {
+      params.push(typeFilter);
+      query += ` AND c.type = $${params.length}`;
+    }
+
+    params.push(limit, offset);
+    query += ` ORDER BY c.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
+    const { rows } = await pool.query(query, params);
 
     const count = rows.length ? parseInt(rows[0].total_count) : 0;
     return res.json({ status: 'success', data: { count, total_pages: Math.ceil(count / limit), current_page: page, records: rows.map(fmt) } });
@@ -124,9 +171,9 @@ router.get('/get-one-campaign', protect, async (req, res) => {
     const uid = req.query.campaign_uid || req.query.uid;
     if (!uid) return res.status(400).json({ status: 'error', message: 'campaign_uid is required' });
 
-    const { rows } = await pool.query('SELECT * FROM campaigns WHERE uid = $1 AND user_id = $2', [uid, req.user.id]);
-    if (!rows.length) return res.status(404).json({ status: 'error', message: 'Campaign not found' });
-    return res.json({ status: 'success', data: { record: fmt(rows[0]) } });
+    const record = await getFullCampaign(uid, req.user.id);
+    if (!record) return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+    return res.json({ status: 'success', data: { record } });
   } catch (e) {
     return res.status(500).json({ status: 'error', message: 'Failed to fetch campaign' });
   }
@@ -138,9 +185,9 @@ router.get('/get-campaign-stats', protect, async (req, res) => {
     const uid = req.query.campaign_uid;
     if (!uid) return res.status(400).json({ status: 'error', message: 'campaign_uid is required' });
 
-    const { rows } = await pool.query('SELECT * FROM campaigns WHERE uid = $1 AND user_id = $2', [uid, req.user.id]);
-    if (!rows.length) return res.status(404).json({ status: 'error', message: 'Campaign not found' });
-    return res.json({ status: 'success', data: { record: fmt(rows[0]) } });
+    const record = await getFullCampaign(uid, req.user.id);
+    if (!record) return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+    return res.json({ status: 'success', data: { record } });
   } catch (e) {
     return res.status(500).json({ status: 'error', message: 'Failed to fetch campaign stats' });
   }
@@ -155,13 +202,12 @@ router.post('/create-a-campaign', protect, async (req, res) => {
     if (missing.length) return res.status(400).json({ status: 'error', message: `Missing: ${missing.join(', ')}` });
 
     const uid = generateUid();
-    const { rows } = await pool.query(
+    await pool.query(
       `INSERT INTO campaigns
          (uid, user_id, name, type, from_name, from_email, reply_to, subject, status,
           list_uid, segment_uid, template_uid, content, plain_text_email, email_stats,
           send_at, url_tracking, inline_css, archive, auto_plain_text, json_feed, xml_feed)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-       RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
       [
         uid, req.user.id,
         b.name, b.type || 'regular',
@@ -175,7 +221,8 @@ router.post('/create-a-campaign', protect, async (req, res) => {
       ]
     );
 
-    return res.status(201).json({ status: 'success', message: 'Campaign created.', data: { record: fmt(rows[0]) } });
+    const record = await getFullCampaign(uid, req.user.id);
+    return res.status(201).json({ status: 'success', message: 'Campaign created.', data: { record } });
   } catch (e) {
     console.error('💥 create-a-campaign:', e);
     return res.status(500).json({ status: 'error', message: 'Failed to create campaign', error: e.message });
@@ -214,7 +261,8 @@ router.put('/update-a-campaign', protect, async (req, res) => {
     );
 
     if (!rows.length) return res.status(404).json({ status: 'error', message: 'Campaign not found' });
-    return res.json({ status: 'success', message: 'Campaign updated.', data: { record: fmt(rows[0]) } });
+    const record = await getFullCampaign(uid, req.user.id);
+    return res.json({ status: 'success', message: 'Campaign updated.', data: { record } });
   } catch (e) {
     return res.status(500).json({ status: 'error', message: 'Failed to update campaign' });
   }
@@ -242,13 +290,12 @@ router.post('/copy-a-campaign', protect, async (req, res) => {
     const o      = orig[0];
     const newUid = generateUid();
 
-    const { rows } = await pool.query(
+    await pool.query(
       `INSERT INTO campaigns
          (uid, user_id, name, type, from_name, from_email, reply_to, subject, status,
           list_uid, segment_uid, template_uid, content, plain_text_email,
           send_at, url_tracking, inline_css, archive, auto_plain_text)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
-       RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'draft',$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [
         newUid, req.user.id,
         `${o.name} (Copy)`, o.type,
@@ -259,7 +306,8 @@ router.post('/copy-a-campaign', protect, async (req, res) => {
       ]
     );
 
-    return res.status(201).json({ status: 'success', message: 'Campaign copied.', data: { record: fmt(rows[0]) } });
+    const record = await getFullCampaign(newUid, req.user.id);
+    return res.status(201).json({ status: 'success', message: 'Campaign copied.', data: { record } });
   } catch (e) {
     return res.status(500).json({ status: 'error', message: 'Failed to copy campaign' });
   }
