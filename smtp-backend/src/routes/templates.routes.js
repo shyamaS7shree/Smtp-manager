@@ -9,9 +9,15 @@ const fmt = (r) => ({
   template_uid: r.uid,
   name:         r.name,
   screenshot:   r.screenshot || '',
-  category:     { name: r.category },
+  category:     r.category || 'general',
+  category_name: r.category || 'general',
   is_active:    r.is_active ? 'yes' : 'no',
   date_added:   r.created_at,
+  created_at:   r.created_at,
+  updated_at:   r.updated_at || r.created_at,
+  last_updated: r.updated_at || r.created_at,
+  content:      r.content || '',
+  plain_text:   r.plain_text || '',
   meta: { content: r.content, plain_text: r.plain_text },
 });
 
@@ -36,10 +42,10 @@ router.get('/get-all-templates', protect, async (req, res) => {
   }
 });
 
-// ── GET /api/get-one-template?template_uid= ───────────────────
-router.get('/get-one-template', protect, async (req, res) => {
+// ── GET /api/get-one-template & /api/template/get-one-template ──
+router.get(['/get-one-template', '/template/get-one-template'], protect, async (req, res) => {
   try {
-    const uid = req.query.template_uid;
+    const uid = req.query.template_uid || req.query.uid;
     if (!uid) return res.status(400).json({ status: 'error', message: 'template_uid is required' });
 
     const { rows } = await pool.query('SELECT * FROM templates WHERE uid = $1 AND user_id = $2', [uid, req.user.id]);
@@ -50,8 +56,8 @@ router.get('/get-one-template', protect, async (req, res) => {
   }
 });
 
-// ── POST /api/create-template ─────────────────────────────────
-router.post('/create-template', protect, async (req, res) => {
+// ── POST /api/create-template & /api/template/create-template ──
+router.post(['/create-template', '/template/create-template'], protect, async (req, res) => {
   try {
     const { name, content, plain_text, category } = req.body;
     if (!name) return res.status(400).json({ status: 'error', message: 'name is required' });
@@ -69,8 +75,8 @@ router.post('/create-template', protect, async (req, res) => {
   }
 });
 
-// ── PUT /api/update-template?template_uid= ────────────────────
-router.put('/update-template', protect, async (req, res) => {
+// ── PUT /api/update-template & /api/template/update-template ──
+router.put(['/update-template', '/template/update-template'], protect, async (req, res) => {
   try {
     const uid = req.query.template_uid || req.body.template_uid;
     const { name, content, plain_text, category } = req.body;
@@ -94,8 +100,8 @@ router.put('/update-template', protect, async (req, res) => {
   }
 });
 
-// ── DELETE /api/delete-template?template_uid= ────────────────
-router.delete('/delete-template', protect, async (req, res) => {
+// ── DELETE /api/delete-template & /api/template/delete-template ──
+router.delete(['/delete-template', '/template/delete-template'], protect, async (req, res) => {
   try {
     const uid = req.query.template_uid || req.body.template_uid;
     const { rowCount } = await pool.query('DELETE FROM templates WHERE uid = $1 AND user_id = $2', [uid, req.user.id]);
