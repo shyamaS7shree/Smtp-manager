@@ -21,7 +21,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
   const [campaignCount, setCampaignCount] = useState(0)
-  const [listCount, setListCount] = useState(0)  // ✅ fixed typo
+  const [listCount, setListCount] = useState(0)
   const [subscribersCount, setSubscribersCount] = useState(0)
   const [templatesCount, setTemplatesCount] = useState(0)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -31,27 +31,40 @@ export default function Dashboard() {
     const checkAuthOnLoad = () => {
       const storedSession = localStorage.getItem("userSession")
       if (!storedSession) {
+        setIsAuthenticated(false)
+        setIsAuthLoading(false)
         router.replace('/authentication')
         return
       }
       try {
         const session: UserSession = JSON.parse(storedSession)
-        const sessionAge = Date.now() - new Date(session.loginTime).getTime()
-        const twentyFourHours = 24 * 60 * 60 * 1000
-        if (sessionAge > twentyFourHours) {
-          localStorage.removeItem("userSession")
-          localStorage.removeItem("cachedLists")
+        if (!session || !session.token) {
+          setIsAuthenticated(false)
+          setIsAuthLoading(false)
           router.replace('/authentication')
           return
         }
+        if (session.loginTime) {
+          const loginTimeMs = new Date(session.loginTime).getTime()
+          if (!isNaN(loginTimeMs)) {
+            const sessionAge = Date.now() - loginTimeMs
+            const twentyFourHours = 24 * 60 * 60 * 1000
+            if (sessionAge > twentyFourHours) {
+              localStorage.removeItem("userSession")
+              localStorage.removeItem("cachedLists")
+              setIsAuthenticated(false)
+              setIsAuthLoading(false)
+              router.replace('/authentication')
+              return
+            }
+          }
+        }
         setIsAuthenticated(true)
       } catch (error) {
-        localStorage.removeItem("userSession")
-        localStorage.removeItem("cachedLists")
-        router.replace('/authentication')
-        return
+        console.error("Auth verification error:", error)
+      } finally {
+        setIsAuthLoading(false)
       }
-      setIsAuthLoading(false)  // ✅ moved outside try block, runs after setIsAuthenticated(true)
     }
     checkAuthOnLoad()
   }, [router])
@@ -104,29 +117,51 @@ export default function Dashboard() {
         return
       }
 
-      const counts = await Promise.all(
-        listRecords.map(async (list: any) => {
-          const list_uid = list?.general?.list_uid || list?.uid || list?.list_uid
-          if (!list_uid) return 0
-          try {
-            const res = await fetch(
-              `/api/get-all-subscribers?list_uid=${list_uid}&page_number=1&per_page=100`,
-              {
-                headers: {
-                  Authorization: `Bearer ${token()}`,
-                  Accept: "application/json",
-                },
-              }
-            )
-            const data = await res.json()
-            return data?.count || data?.data?.data?.count || data?.data?.count || 0
-          } catch {
-            return 0
-          }
-        })
-      )
+      // Check if subscriber count exists directly on list objects
+      let inlineSum = 0;
+      let hasInlineCount = false;
+      for (const list of listRecords) {
+        const c = list?.subscribers_count ?? list?.general?.subscribers_count ?? list?.stats?.subscribers_count ?? list?.general?.subscribersCount;
+        if (c !== undefined && c !== null) {
+          inlineSum += Number(c) || 0;
+          hasInlineCount = true;
+        }
+      }
 
-      const total = counts.reduce((sum, count) => sum + count, 0)
+      if (hasInlineCount && inlineSum > 0) {
+        setSubscribersCount(inlineSum);
+        return;
+      }
+
+      // Fallback: Batch requests (max 5 concurrently) to avoid network bottleneck
+      const BATCH_SIZE = 5;
+      let total = 0;
+      for (let i = 0; i < listRecords.length; i += BATCH_SIZE) {
+        const chunk = listRecords.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          chunk.map(async (list: any) => {
+            const list_uid = list?.general?.list_uid || list?.uid || list?.list_uid
+            if (!list_uid) return 0
+            try {
+              const res = await fetch(
+                `/api/get-all-subscribers?list_uid=${list_uid}&page_number=1&per_page=1`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token()}`,
+                    Accept: "application/json",
+                  },
+                }
+              )
+              const data = await res.json()
+              return data?.count || data?.data?.data?.count || data?.data?.count || 0
+            } catch {
+              return 0
+            }
+          })
+        );
+        total += batchResults.reduce((sum, count) => sum + count, 0);
+      }
+
       setSubscribersCount(total)
     } catch (error) {
       console.error("Error fetching subscribers:", error)

@@ -392,91 +392,42 @@ const fetchCampaigns = async () => {
 
     if (!Array.isArray(records) || records.length === 0) return
 
-    const detailedCampaigns: Campaign[] = await Promise.all(
-      records.map(async (item: any, index: number) => {
+    const mappedCampaigns: Campaign[] = records.map((item: any, index: number) => {
+      const stats = item?.stats || {}
+      return {
+        id: Number(item?.campaign_id ?? item?.id ?? Date.now() + index),
+        uniqueId: String(item?.campaign_uid ?? item?.uid ?? ''),
+        campaign_uid: String(item?.campaign_uid ?? item?.uid ?? ''),
+        name: String(item?.name ?? 'Untitled'),
+        type: String(item?.type ?? 'Regular'),
+        status: String(item?.status ?? 'Draft'),
+        list: item?.list?.name || item?.list_name || '-',
+        list_uid: item?.list?.list_uid || item?.list_uid || '',
+        listId: item?.list?.list_uid || item?.list_uid || '',
+        subject: item?.subject || '-',
+        fromName: item?.from_name || '-',
+        fromEmail: item?.from_email || '-',
+        replyTo: item?.reply_to || '-',
+        toName: item?.to_name || '[EMAIL]',
+        segment: item?.segment?.name || item?.segment_name || '-',
+        group: item?.group?.name || item?.group_name || '-',
+        recurring: item?.recurring_status ? 'Yes' : 'No',
+        sendAt: item?.send_at || '',
+        dateAdded: item?.date_added || item?.created_at || '',
+        startedAt: item?.started_at || '',
+        template: item?.template?.name || item?.template_name || '-',
+        delivered: String(stats?.processed_subscribers ?? stats?.delivered ?? item?.delivered ?? 0),
+        opens: String(stats?.opens_count ?? stats?.opens ?? item?.opens ?? 0),
+        clicks: String(stats?.clicks_count ?? stats?.clicks ?? item?.clicks ?? 0),
+        bounces: String(stats?.bounces_count ?? stats?.bounces ?? item?.bounces ?? 0),
+        unsubs: String(stats?.unsubscribes_count ?? stats?.unsubs ?? item?.unsubs ?? 0),
+        sendGroup: item?.send_group?.name || item?.send_group || '',
+        lastUpdated: item?.updated_at || '',
+      }
+    })
 
-        // Step 1: get-one call
-        const detail = await fetchOneCampaign(item.campaign_uid)
-        console.log('detail:', detail)
-        // Step 2: segment fetch
-        let segmentName = '-'
-        const listUid = detail?.list?.list_uid
-        if (listUid) {
-          try {
-            const segRes = await fetch(
-              `/api/get-all-segments?list_uid=${encodeURIComponent(listUid)}`,
-              {
-                method: 'GET',
-                headers: {
-                  Authorization: `Bearer ${token()}`,
-                  Accept: 'application/json',
-                },
-              }
-            )
-            const segData = await segRes.json()
-            const segments = segData?.data?.records || segData?.records || []
-            if (segments.length > 0) {
-              segmentName = segments[0]?.name ?? '-'
-            }
-          } catch (e) {
-            console.warn('segments fetch failed:', listUid)
-          }
-        }
-
-        // Step 3: template name fetch
-        let templateName = '-'
-        const templateUid = detail?.template?.template_uid ?? detail?.template_uid
-        if (templateUid) {
-          templateName = await fetchTemplateName(templateUid)
-        }
-
-        return {
-          id: Number(item?.campaign_id ?? Date.now() + index),
-          uniqueId: String(item?.campaign_uid ?? ''),
-          campaign_uid: String(item?.campaign_uid ?? ''),
-          name: String(detail?.name ?? item?.name ?? 'Untitled'),
-          type: String(detail?.type ?? item?.type ?? 'Regular'),
-          status: String(detail?.status ?? item?.status ?? 'Draft'),
-          list: detail?.list?.name || item?.list?.name || '-',
-          list_uid: detail?.list?.list_uid ?? '',
-          listId: detail?.list?.list_uid ?? '',
-          subject: detail?.subject ?? '-',
-          fromName: detail?.from_name ?? '-',
-          fromEmail: detail?.from_email ?? '-',
-          replyTo: detail?.reply_to ?? '-',
-          toName: detail?.to_name ?? '[EMAIL]',
-          segment: segmentName,
-          group: detail?.group?.name ?? '-',
-          recurring: item?.recurring_status ? 'Yes' : 'No',
-          sendAt: detail?.send_at ?? '',
-          dateAdded: detail?.date_added ?? '',
-          startedAt: '',
-          template: templateName, // ✅ real template name
-          delivered: '0',
-          opens: '0',
-          clicks: '0',
-          bounces: '0',
-          unsubs: '0',
-          sendGroup: '',
-          lastUpdated: '',
-        }
-      })
-    )
-
-    setCampaigns(detailedCampaigns)
-    localStorage.setItem('cachedCampaigns', JSON.stringify(detailedCampaigns))
-
-    // Step 4: stats fetch
-    const withStats = await Promise.all(
-      detailedCampaigns.map(async (campaign) => {
-        if (!campaign.campaign_uid) return campaign
-        const stats = await fetchCampaignStats(campaign.campaign_uid)
-        return stats ? { ...campaign, ...stats } : campaign
-      })
-    )
-
-    setCampaigns(withStats)
-    localStorage.setItem('cachedCampaigns', JSON.stringify(withStats))
+    setCampaigns(mappedCampaigns)
+    localStorage.setItem('cachedCampaigns', JSON.stringify(mappedCampaigns))
 
   } catch (error) {
     console.error('fetchCampaigns error:', error)

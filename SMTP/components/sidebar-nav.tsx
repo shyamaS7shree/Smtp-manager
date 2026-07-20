@@ -254,7 +254,7 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
       {/* ✅ FIXED LOGO WITH CONSISTENT SIZING */}
       <div className="flex items-center justify-center px-4 py-3 mt-3 h-16">
         <Link href={'/'}>
-          <Image src={theme === 'dark' || false ? ("/smtpdarklogo.png") : ("/smtplogo.jpg")} alt="SMTP Master" width={120} height={32} className="h-25 w-auto object-contain" />
+          <Image src={theme === 'dark' || false ? ("/smtpdarklogo.png") : ("/smtplogo.jpg")} alt="SMTP Master" width={120} height={32} priority className="h-25 w-auto object-contain" />
         </Link>
       </div>
       {sidebarContent}

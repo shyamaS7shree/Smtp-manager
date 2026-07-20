@@ -631,13 +631,20 @@ const applySelectedTemplate = async () => {
         if (!stored) return forceLogout();
 
         const session = JSON.parse(stored);
-        const sessionAge = Date.now() - new Date(session.loginTime).getTime();
-        const twentyFourHours = 24 * 60 * 60 * 1000;
-        if (!session.loginTime || sessionAge > twentyFourHours) return forceLogout();
+        const token = session.token || session.access_token || "";
+        if (!token) return forceLogout();
+
+        if (session.loginTime) {
+          const loginTimeMs = new Date(session.loginTime).getTime();
+          if (!isNaN(loginTimeMs)) {
+            const sessionAge = Date.now() - loginTimeMs;
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            if (sessionAge > twentyFourHours) return forceLogout();
+          }
+        }
 
         const shortName = getShortName(session.name || "");
         const userEmail = session.email || "";
-        const token = session.token || session.access_token || "";
 
         setUserInfo({ name: session.name || "", email: userEmail, shortName, token, loginTime: session.loginTime || "" });
 
@@ -654,8 +661,8 @@ const applySelectedTemplate = async () => {
 
         // ✅ token directly pass করো
         await loadLists(token);
-      } catch {
-        forceLogout();
+      } catch (err) {
+        console.error("Auth check warning in AddCampigens:", err);
       }
     })();
 

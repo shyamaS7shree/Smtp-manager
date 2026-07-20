@@ -3,99 +3,41 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { token } from "@/components/common/http";
-
-
+import {
+  Sparkles,
+  ArrowLeft,
+  Eye,
+  Code,
+  Edit3,
+  Tag,
+  Save,
+  Copy,
+  RotateCcw,
+  X,
+  Bold,
+  Italic,
+  Underline,
+  Heading2,
+  Pilcrow,
+  List,
+  ListOrdered,
+  Check,
+  FileCode,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const availableTags = [
-  { tag: "[COMPANY_FULL_ADDRESS]", required: "NO" },
-  { tag: "[UPDATE_PROFILE_URL]", required: "NO" },
-  { tag: "[WEB_VERSION_URL]", required: "NO" },
-  { tag: "[CAMPAIGN_URL]", required: "NO" },
-  { tag: "[FORWARD_FRIEND_URL]", required: "NO" },
-  { tag: "[LIST_UID]", required: "NO" },
-  { tag: "[LIST_NAME]", required: "NO" },
-  { tag: "[LIST_SUBJECT]", required: "NO" },
-  { tag: "[LIST_DESCRIPTION]", required: "NO" },
-  { tag: "[LIST_FROM_NAME]", required: "NO" },
-  { tag: "[LIST_FROM_EMAIL]", required: "NO" },
-  { tag: "[LIST_VCARD_URL]", required: "NO" },
-  { tag: "[CURRENT_YEAR]", required: "NO" },
-  { tag: "[CURRENT_MONTH]", required: "NO" },
-  { tag: "[CURRENT_DAY]", required: "NO" },
-  { tag: "[CURRENT_DATE]", required: "NO" },
-  { tag: "[CURRENT_MONTH_FULL_NAME]", required: "NO" },
-  { tag: "[COMPANY_NAME]", required: "NO" },
-  { tag: "[COMPANY_WEBSITE]", required: "NO" },
-  { tag: "[COMPANY_ADDRESS_1]", required: "NO" },
-  { tag: "[COMPANY_ADDRESS_2]", required: "NO" },
-  { tag: "[COMPANY_CITY]", required: "NO" },
-  { tag: "[COMPANY_ZONE]", required: "NO" },
-  { tag: "[COMPANY_ZONE_CODE]", required: "NO" },
-  { tag: "[COMPANY_ZIP]", required: "NO" },
-  { tag: "[COMPANY_COUNTRY]", required: "NO" },
-  { tag: "[COMPANY_COUNTRY_CODE]", required: "NO" },
-  { tag: "[COMPANY_PHONE]", required: "NO" },
-  { tag: "[CAMPAIGN_NAME]", required: "NO" },
-  { tag: "[CAMPAIGN_TYPE]", required: "NO" },
-  { tag: "[CAMPAIGN_SUBJECT]", required: "NO" },
-  { tag: "[CAMPAIGN_TO_NAME]", required: "NO" },
-  { tag: "[CAMPAIGN_FROM_NAME]", required: "NO" },
-  { tag: "[CAMPAIGN_FROM_EMAIL]", required: "NO" },
-  { tag: "[CAMPAIGN_REPLY_TO]", required: "NO" },
-  { tag: "[CAMPAIGN_UID]", required: "NO" },
-  { tag: "[CAMPAIGN_SEND_AT]", required: "NO" },
-  { tag: "[CAMPAIGN_STARTED_AT]", required: "NO" },
-  { tag: "[CAMPAIGN_DATE_ADDED]", required: "NO" },
-  { tag: "[CAMPAIGN_SEGMENT_NAME]", required: "NO" },
-  { tag: "[CAMPAIGN_VCARD_URL]", required: "NO" },
-  { tag: "[SUBSCRIBER_UID]", required: "NO" },
-  { tag: "[SUBSCRIBER_IP]", required: "NO" },
-  { tag: "[SUBSCRIBER_DATE_ADDED]", required: "NO" },
-  { tag: "[SUBSCRIBER_DATE_ADDED_LOCALIZED]", required: "NO" },
-  { tag: "[SUBSCRIBER_OPTIN_IP]", required: "NO" },
-  { tag: "[SUBSCRIBER_OPTIN_DATE]", required: "NO" },
-  { tag: "[SUBSCRIBER_CONFIRM_IP]", required: "NO" },
-  { tag: "[SUBSCRIBER_CONFIRM_DATE]", required: "NO" },
-  { tag: "[SUBSCRIBER_LAST_SENT_DATE]", required: "NO" },
-  { tag: "[SUBSCRIBER_LAST_SENT_DATE_LOCALIZED]", required: "NO" },
-  { tag: "[SUBSCRIBER_EMAIL_NAME]", required: "NO" },
-  { tag: "[SUBSCRIBER_EMAIL_DOMAIN]", required: "NO" },
-  { tag: "[EMAIL_NAME]", required: "NO" },
-  { tag: "[EMAIL_DOMAIN]", required: "NO" },
-  { tag: "[DATE]", required: "NO" },
-  { tag: "[DATETIME]", required: "NO" },
-  { tag: "[RANDOM_CONTENT:a|b|c]", required: "NO" },
-  { tag: "[REMOTE_CONTENT url='https://www.google.com/']", required: "NO" },
-  {
-    tag: "[COUNTDOWN until='2026-02-02 09:02:07' size='large' text-color='db9842' background-color='ffffff' show-circle='yes' circle-background-color='ffcccc' circle-foreground-color='ff0000' max-frames=60 show-text-label='yes']",
-    required: "NO",
-  },
-  { tag: "[CAMPAIGN_REPORT_ABUSE_URL]", required: "NO" },
-  { tag: "[CURRENT_DOMAIN_URL]", required: "NO" },
-  { tag: "[CURRENT_DOMAIN]", required: "NO" },
-  { tag: "[SIGN_LT]", required: "NO" },
-  { tag: "[SIGN_LTE]", required: "NO" },
-  { tag: "[SIGN_GT]", required: "NO" },
-  { tag: "[SIGN_GTE]", required: "NO" },
-  { tag: "[DS_NAME]", required: "NO" },
-  { tag: "[DS_HOST]", required: "NO" },
-  { tag: "[DS_TYPE]", required: "NO" },
-  { tag: "[DS_ID]", required: "NO" },
-  { tag: "[DS_FROM_NAME]", required: "NO" },
-  { tag: "[DS_FROM_EMAIL]", required: "NO" },
-  { tag: "[DS_REPLYTO_EMAIL]", required: "NO" },
-  { tag: "[SUBSCRIBE_URL]", required: "NO" },
-  { tag: "[SUBSCRIBE_LINK]", required: "NO" },
   { tag: "[UNSUBSCRIBE_URL]", required: "YES" },
-  { tag: "[UNSUBSCRIBE_LINK]", required: "NO" },
-  { tag: "[DIRECT_UNSUBSCRIBE_URL]", required: "NO" },
-  { tag: "[DIRECT_UNSUBSCRIBE_LINK]", required: "NO" },
-  { tag: "[UNSUBSCRIBE_FROM_CUSTOMER_URL]", required: "NO" },
-  { tag: "[UNSUBSCRIBE_FROM_CUSTOMER_LINK]", required: "NO" },
-  { tag: "[SURVEY:SURVEY_UNIQUE_ID_HERE:VIEW_URL]", required: "NO" },
-  { tag: "[EMAIL]", required: "NO" },
   { tag: "[FNAME]", required: "NO" },
   { tag: "[LNAME]", required: "NO" },
+  { tag: "[EMAIL]", required: "NO" },
+  { tag: "[COMPANY_NAME]", required: "NO" },
+  { tag: "[CURRENT_YEAR]", required: "NO" },
+  { tag: "[WEB_VERSION_URL]", required: "NO" },
+  { tag: "[UPDATE_PROFILE_URL]", required: "NO" },
+  { tag: "[SUBSCRIBE_URL]", required: "NO" },
+  { tag: "[CAMPAIGN_NAME]", required: "NO" },
+  { tag: "[CAMPAIGN_SUBJECT]", required: "NO" },
 ];
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -115,196 +57,56 @@ function Toast({
   return (
     <div
       className={cn(
-        "fixed top-4 right-4 z-[100] flex items-center gap-2 rounded-md px-4 py-3 text-white shadow-lg",
-        type === "success" ? "bg-green-600" : "bg-red-600",
+        "fixed top-5 right-5 z-[100] flex items-center gap-2 rounded-xl px-4 py-3 text-white shadow-xl animate-in slide-in-from-top-2 duration-200",
+        type === "success" ? "bg-emerald-600" : "bg-red-600",
       )}
       role="status"
-      aria-live="polite"
     >
-      <span className="h-2 w-2 rounded-full bg-white/90" />
+      <span className="h-2 w-2 rounded-full bg-white" />
       <span className="text-sm font-medium">{message}</span>
       <button
         type="button"
         onClick={onClose}
-        className="ml-2 rounded px-2 py-1 text-white/90 hover:text-white"
-        aria-label="Close toast"
+        className="ml-3 rounded-md px-1.5 py-0.5 text-white/80 hover:bg-white/20 hover:text-white"
       >
-        x
+        <X size={14} />
       </button>
     </div>
   );
 }
 
-function TagsModal({
-  open,
-  onClose,
-  onInsert,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onInsert: (tag: string) => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-4xl max-h-[80vh] overflow-hidden rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <h3 className="text-sm font-semibold text-gray-900">Available Tags</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="px-4 py-3 overflow-y-auto max-h-[60vh]">
-          <div className="mb-2 flex items-center justify-between text-xs font-semibold text-gray-700">
-            <span className="w-3/4">Tag</span>
-            <span className="w-1/4 text-right">Required</span>
-          </div>
-          <div className="rounded border border-gray-200">
-            {availableTags.map((t) => (
-              <div
-                key={t.tag}
-                className="flex items-center justify-between border-b border-gray-100 px-3 py-2 text-xs hover:bg-gray-50 last:border-b-0"
-              >
-                <button
-                  type="button"
-                  onClick={() => onInsert(t.tag)}
-                  className="w-3/4 text-left text-blue-600 hover:text-blue-800 hover:underline"
-                  title="Insert tag"
-                >
-                  <code className="font-mono">{t.tag}</code>
-                </button>
-                <div className="w-1/4 text-right">
-                  <span
-                    className={cn(
-                      "px-2 py-1 rounded text-xs font-semibold",
-                      t.required === "YES"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-gray-100 text-gray-800",
-                    )}
-                  >
-                    {t.required}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex justify-end border-t border-gray-200 px-4 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-8 rounded border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 hover:bg-gray-50"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function AddEmailTemplateEditor() {
+export default function AddEmailTemplateComponent() {
   const router = useRouter();
-  const editorRef = useRef<HTMLDivElement | null>(null);
 
   const [name, setName] = useState("");
+  const [category, setCategory] = useState("general");
   const [content, setContent] = useState("");
-  const [mode, setMode] = useState<"edit" | "source" | "preview">("edit");
   const [source, setSource] = useState("");
+  const [mode, setMode] = useState<"edit" | "source" | "preview">("edit");
   const [saving, setSaving] = useState(false);
+  const [copiedHtml, setCopiedHtml] = useState(false);
+
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const [showTags, setShowTags] = useState(false);
 
-  // ── mode switch ref (edit mode এ ফিরলে content sync করতে) ──────────────
-  const prevModeRef = useRef<"edit" | "source" | "preview">("edit");
-  React.useEffect(() => {
-    if (mode === "edit" && prevModeRef.current !== "edit") {
-      if (editorRef.current) {
-        editorRef.current.innerHTML = content;
-      }
-    }
-    prevModeRef.current = mode;
-  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  const editorRef = useRef<HTMLDivElement | null>(null);
 
-  const showToast = useCallback(
-    (type: "success" | "error", message: string) => {
-      setToast({ type, message });
-      window.setTimeout(() => setToast(null), 2000);
-    },
-    [],
-  );
+  const showToast = useCallback((type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    window.setTimeout(() => setToast(null), 3000);
+  }, []);
 
-  // ── Validate ─────────────────────────────────────────────────────────────
   const validate = useCallback(() => {
     if (!name.trim()) return "Template name is required.";
-    if (!content.trim()) return "Template content cannot be empty.";
-    if (!content.includes("[UNSUBSCRIBE_URL]"))
-      return "Template must include [UNSUBSCRIBE_URL].";
+    if (!content.includes("[UNSUBSCRIBE_URL]")) {
+      return "Template must include [UNSUBSCRIBE_URL]. Click '[UNSUBSCRIBE_URL]' in Quick Tags to add it.";
+    }
     return null;
   }, [name, content]);
 
-  // ── Insert tag ────────────────────────────────────────────────────────────
-  const insertTag = useCallback(
-    (tag: string) => {
-      if (mode !== "edit") {
-        setSource((s) => s + tag);
-        showToast("success", "Tag inserted");
-        return;
-      }
-
-      const editor = editorRef.current;
-      if (!editor) return;
-
-      editor.focus();
-      const sel = window.getSelection();
-
-      if (!sel || sel.rangeCount === 0) {
-        editor.innerHTML = (editor.innerHTML || "") + tag;
-        setContent(editor.innerHTML);
-        showToast("success", "Tag inserted");
-        return;
-      }
-
-      const range = sel.getRangeAt(0);
-      if (!editor.contains(range.commonAncestorContainer)) {
-        editor.innerHTML = (editor.innerHTML || "") + tag;
-        setContent(editor.innerHTML);
-        showToast("success", "Tag inserted");
-        return;
-      }
-
-      range.deleteContents();
-      const node = document.createTextNode(tag);
-      range.insertNode(node);
-      range.setStartAfter(node);
-      range.setEndAfter(node);
-      sel.removeAllRanges();
-      sel.addRange(range);
-
-      setContent(editor.innerHTML);
-      showToast("success", "Tag inserted");
-    },
-    [mode, showToast],
-  );
-
-  // ── Toolbar commands ──────────────────────────────────────────────────────
-  const exec = useCallback((cmd: string, value?: string) => {
-    document.execCommand(cmd, false, value);
-    setContent(editorRef.current?.innerHTML ?? "");
-  }, []);
-
-  // ── CREATE (POST) ─────────────────────────────────────────────────────────
-const handleCreate = useCallback(async () => {
+  const handleCreate = useCallback(async () => {
     const err = validate();
     if (err) {
       showToast("error", err);
@@ -321,7 +123,9 @@ const handleCreate = useCallback(async () => {
         },
         body: JSON.stringify({
           name: name.trim(),
+          category: category.trim() || "general",
           content,
+          inline_css: "yes",
         }),
       });
 
@@ -330,32 +134,90 @@ const handleCreate = useCallback(async () => {
       try {
         data = JSON.parse(text);
       } catch {
-        data = { raw: text };
+        data = { message: text };
       }
 
-      if (!res.ok) {
+      if (!res.ok || data?.status !== "success") {
         throw new Error(data?.message || `Server error ${res.status}`);
       }
 
-      showToast("success", data?.message || "Template created successfully!");
-      window.setTimeout(() => router.push("/email-templates/templates"), 900);
+      showToast("success", "Template created successfully!");
+      window.setTimeout(() => {
+        router.push("/email-templates/templates");
+      }, 1000);
     } catch (e: any) {
-      showToast("error", e?.message || "Create failed");
-    } finally {
+      showToast("error", e?.message || "Failed to create template.");
+    } fontally: {
       setSaving(false);
     }
-  }, [validate, showToast, name, content, router]);
+  }, [name, category, content, validate, showToast, router]);
 
-  // ── Reset / Clear form ────────────────────────────────────────────────────
   const handleReset = useCallback(() => {
     setName("");
+    setCategory("general");
     setContent("");
     setSource("");
     if (editorRef.current) editorRef.current.innerHTML = "";
+    showToast("success", "Cleared template form.");
+  }, [showToast]);
+
+  const insertTag = useCallback(
+    (tag: string) => {
+      if (mode !== "edit") {
+        setSource((s) => s + tag);
+        setContent((c) => c + tag);
+        showToast("success", `Inserted ${tag}`);
+        return;
+      }
+
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        editor.innerHTML = (editor.innerHTML || "") + tag;
+        setContent(editor.innerHTML);
+        showToast("success", `Inserted ${tag}`);
+        return;
+      }
+
+      const range = sel.getRangeAt(0);
+      if (!editor.contains(range.commonAncestorContainer)) {
+        editor.innerHTML = (editor.innerHTML || "") + tag;
+        setContent(editor.innerHTML);
+        showToast("success", `Inserted ${tag}`);
+        return;
+      }
+
+      range.deleteContents();
+      const node = document.createTextNode(tag);
+      range.insertNode(node);
+      range.setStartAfter(node);
+      range.setEndAfter(node);
+      sel.removeAllRanges();
+      sel.addRange(range);
+
+      setContent(editor.innerHTML);
+      showToast("success", `Inserted ${tag}`);
+    },
+    [mode, showToast],
+  );
+
+  const exec = useCallback((cmd: string, value?: string) => {
+    document.execCommand(cmd, false, value);
+    setContent(editorRef.current?.innerHTML ?? "");
   }, []);
 
+  const handleCopyHtml = () => {
+    navigator.clipboard.writeText(content);
+    setCopiedHtml(true);
+    setTimeout(() => setCopiedHtml(false), 2000);
+    showToast("success", "HTML copied to clipboard!");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6">
       {toast && (
         <Toast
           type={toast.type}
@@ -364,126 +226,206 @@ const handleCreate = useCallback(async () => {
         />
       )}
 
-      <TagsModal
-        open={showTags}
-        onClose={() => setShowTags(false)}
-        onInsert={(t) => insertTag(t)}
-      />
-
-      <div className="mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Add Email Template
-            </h1>
-            <p className="text-sm text-gray-600">Create a new email template</p>
+      <div className="mx-auto max-w-6xl space-y-6">
+        {/* Header Bar */}
+        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/email-templates/templates")}
+              className="p-2 bg-slate-100 hover:bg-slate-200/70 text-slate-700 rounded-lg transition-colors"
+              title="Back to Templates"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                  Add Email Template
+                </h1>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  New
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Design and configure a reusable HTML email template
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {(["edit", "source", "preview"] as const).map((m) => (
+          {/* Mode Switcher & Cancel Button */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
               <button
-                key={m}
                 type="button"
-                onClick={() => setMode(m)}
+                onClick={() => setMode("edit")}
                 className={cn(
-                  "h-9 rounded px-3 text-sm font-medium border capitalize",
-                  mode === m
-                    ? "bg-white border-gray-300"
-                    : "bg-gray-100 border-gray-200 hover:bg-gray-200",
+                  "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5",
+                  mode === "edit"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900",
                 )}
               >
-                {m}
+                <Edit3 size={14} />
+                Visual Edit
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setSource(content);
+                  setMode("source");
+                }}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5",
+                  mode === "source"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900",
+                )}
+              >
+                <Code size={14} />
+                HTML Source
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("preview")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5",
+                  mode === "preview"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900",
+                )}
+              >
+                <Eye size={14} />
+                Live Preview
+              </button>
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => router.push("/email-templates/templates")}
+              className="h-9 px-3.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 border-slate-200 flex items-center gap-1.5"
+            >
+              <X size={15} className="text-slate-500" />
+              <span>Cancel</span>
+            </Button>
           </div>
         </div>
 
+        {/* Main 2-Column Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Left: Editor ── */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="p-6 space-y-5">
-                {/* Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+          {/* Left Column: Form & Editor */}
+          <div className="lg:col-span-2 space-y-5">
+            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-4">
+              {/* Template Name & Category Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Template Name *
                   </label>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full h-10 rounded border border-gray-300 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter template name"
+                    suppressHydrationWarning
+                    className="w-full h-10 px-3 text-sm bg-slate-50/50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                    placeholder="e.g., Summer Promotional Newsletter"
                   />
                 </div>
 
-                {/* Edit mode */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Category
+                  </label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    suppressHydrationWarning
+                    className="w-full h-10 px-3 text-sm bg-slate-50/50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900 capitalize"
+                  >
+                    <option value="general">General</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="newsletter">Newsletter</option>
+                    <option value="transactional">Transactional</option>
+                    <option value="onboarding">Onboarding</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Editor Workspace */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Template Content
+                </label>
+
                 {mode === "edit" && (
-                  <div className="border border-gray-300 rounded">
-                    <div className="border-b border-gray-200 bg-gray-50 p-2 flex flex-wrap items-center gap-1">
-                      <button
-                        className="h-8 px-2 rounded hover:bg-gray-200 text-sm font-bold"
-                        onClick={() => exec("bold")}
-                      >
-                        B
-                      </button>
-                      <button
-                        className="h-8 px-2 rounded hover:bg-gray-200 text-sm italic"
-                        onClick={() => exec("italic")}
-                      >
-                        I
-                      </button>
-                      <button
-                        className="h-8 px-2 rounded hover:bg-gray-200 text-sm underline"
-                        onClick={() => exec("underline")}
-                      >
-                        U
-                      </button>
-                      <div className="w-px h-5 bg-gray-300 mx-1" />
-                      <button
-                        className="h-8 px-2 rounded hover:bg-gray-200 text-xs"
-                        onClick={() => exec("formatBlock", "h2")}
-                      >
-                        H2
-                      </button>
-                      <button
-                        className="h-8 px-2 rounded hover:bg-gray-200 text-xs"
-                        onClick={() => exec("formatBlock", "p")}
-                      >
-                        P
-                      </button>
-                      <div className="w-px h-5 bg-gray-300 mx-1" />
-                      <button
-                        className="h-8 px-2 rounded hover:bg-gray-200 text-xs"
-                        onClick={() => exec("insertUnorderedList")}
-                      >
-                        UL
-                      </button>
-                      <button
-                        className="h-8 px-2 rounded hover:bg-gray-200 text-xs"
-                        onClick={() => exec("insertOrderedList")}
-                      >
-                        OL
-                      </button>
-                      <div className="flex-1" />
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    {/* Rich Text Formatting Toolbar */}
+                    <div className="bg-slate-50 p-2 border-b border-slate-200 flex flex-wrap items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setShowTags(true)}
-                        className="h-8 rounded border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 hover:bg-gray-50"
+                        onClick={() => exec("bold")}
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 font-bold text-xs"
+                        title="Bold"
                       >
-                        Tags
+                        <Bold size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exec("italic")}
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 text-xs"
+                        title="Italic"
+                      >
+                        <Italic size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exec("underline")}
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 text-xs"
+                        title="Underline"
+                      >
+                        <Underline size={15} />
+                      </button>
+                      <div className="w-px h-4 bg-slate-300 mx-1" />
+                      <button
+                        type="button"
+                        onClick={() => exec("formatBlock", "h2")}
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 text-xs flex items-center gap-0.5 font-semibold"
+                        title="Heading 2"
+                      >
+                        <Heading2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exec("formatBlock", "p")}
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 text-xs flex items-center gap-0.5"
+                        title="Paragraph"
+                      >
+                        <Pilcrow size={15} />
+                      </button>
+                      <div className="w-px h-4 bg-slate-300 mx-1" />
+                      <button
+                        type="button"
+                        onClick={() => exec("insertUnorderedList")}
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 text-xs"
+                        title="Bullet List"
+                      >
+                        <List size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exec("insertOrderedList")}
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 text-xs"
+                        title="Numbered List"
+                      >
+                        <ListOrdered size={15} />
                       </button>
                     </div>
 
-                    {/* contentEditable editor — কোনো useEffect এর মধ্যে innerHTML set হয় না */}
+                    {/* ContentEditable Container */}
                     <div
                       ref={editorRef}
                       contentEditable
                       suppressContentEditableWarning
-                      className="min-h-[420px] p-4 outline-none"
-                      onInput={() =>
-                        setContent(editorRef.current?.innerHTML ?? "")
-                      }
+                      className="min-h-[440px] p-5 outline-none text-slate-800 text-sm bg-white"
+                      onInput={() => setContent(editorRef.current?.innerHTML ?? "")}
                       onPaste={(e) => {
                         e.preventDefault();
                         const text = e.clipboardData.getData("text/plain");
@@ -494,173 +436,123 @@ const handleCreate = useCallback(async () => {
                   </div>
                 )}
 
-                {/* Source mode */}
+                {/* HTML Source View */}
                 {mode === "source" && (
-                  <div className="border border-gray-300 rounded">
-                    <div className="border-b border-gray-200 bg-gray-50 px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-gray-700">
-                        HTML Source
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    <div className="bg-slate-900 text-slate-300 px-4 py-2 text-xs font-mono flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <FileCode size={14} /> HTML Source Code
                       </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowTags(true)}
-                          className="h-8 rounded border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 hover:bg-gray-50"
-                        >
-                          Tags
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setContent(source);
-                            showToast("success", "Source applied");
-                          }}
-                          className="h-8 rounded bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
-                        >
-                          Apply
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContent(source);
+                          showToast("success", "Source HTML applied!");
+                        }}
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition-colors"
+                      >
+                        Apply Changes
+                      </button>
                     </div>
                     <textarea
                       value={source}
-                      onChange={(e) => setSource(e.target.value)}
-                      className="w-full h-[460px] p-4 font-mono text-sm outline-none resize-none"
+                      onChange={(e) => {
+                        setSource(e.target.value);
+                        setContent(e.target.value);
+                      }}
+                      className="w-full h-[440px] p-4 font-mono text-xs text-slate-100 bg-slate-950 outline-none resize-none leading-relaxed"
                       spellCheck={false}
                     />
                   </div>
                 )}
 
-                {/* Preview mode */}
+                {/* Live Preview View */}
                 {mode === "preview" && (
-                  <div className="border border-gray-300 rounded">
-                    <div className="border-b border-gray-200 bg-gray-50 px-3 py-2 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-gray-700">
-                        Preview
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowTags(true)}
-                        className="h-8 rounded border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 hover:bg-gray-50"
-                      >
-                        Tags
-                      </button>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-100 p-4 min-h-[480px] flex justify-center">
+                    <div className="w-full bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden p-6">
+                      {content ? (
+                        <div
+                          className="prose max-w-none text-slate-800 text-sm"
+                          dangerouslySetInnerHTML={{ __html: content }}
+                        />
+                      ) : (
+                        <div className="py-16 text-center text-slate-400 text-xs">
+                          No HTML content created yet.
+                        </div>
+                      )}
                     </div>
-                    <div
-                      className="min-h-[420px] bg-white p-4"
-                      dangerouslySetInnerHTML={{ __html: content }}
-                    />
                   </div>
                 )}
-
-                <div className="text-xs text-gray-500">
-                  Required:{" "}
-                  <span className="font-semibold text-red-600">
-                    [UNSUBSCRIBE_URL]
-                  </span>
-                </div>
               </div>
             </div>
           </div>
 
-          {/* ── Right: Sidebar ── */}
-          <div className="space-y-6">
-            {/* Quick Tags */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">
-                  Quick Tags
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowTags(true)}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-800"
-                >
-                  View All
-                </button>
+          {/* Right Column: Quick Tags & Actions */}
+          <div className="space-y-5">
+            {/* Quick Tags Box */}
+            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Tag size={16} className="text-blue-600" />
+                  <h3 className="text-sm font-bold text-slate-900">Quick Tags</h3>
+                </div>
+                <span className="text-[10px] font-medium text-slate-400">Click to Insert</span>
               </div>
-              <div className="p-4 flex flex-wrap gap-2">
-                {[
-                  "[FNAME]",
-                  "[LNAME]",
-                  "[EMAIL]",
-                  "[COMPANY_NAME]",
-                  "[CURRENT_YEAR]",
-                  "[UNSUBSCRIBE_URL]",
-                ].map((t) => (
+
+              <div className="flex flex-wrap gap-1.5 pt-1 max-h-[280px] overflow-y-auto pr-1">
+                {availableTags.map((item) => (
                   <button
-                    key={t}
+                    key={item.tag}
                     type="button"
-                    onClick={() => insertTag(t)}
+                    onClick={() => insertTag(item.tag)}
                     className={cn(
-                      "px-3 py-1.5 text-xs rounded border hover:bg-gray-50",
-                      t === "[UNSUBSCRIBE_URL]"
+                      "px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-all border",
+                      item.required === "YES"
                         ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
-                        : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200",
                     )}
+                    title={`Click to insert ${item.tag}`}
                   >
-                    {t}
+                    {item.tag}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="p-4 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900">Actions</h3>
-              </div>
-              <div className="p-4 space-y-3">
-                <button
-                  type="button"
+            {/* Action Buttons Box */}
+            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5">
+                Actions
+              </h3>
+
+              <div className="space-y-2">
+                <Button
                   onClick={handleCreate}
                   disabled={saving}
-                  className={cn(
-                    "w-full h-10 rounded text-sm font-semibold text-white",
-                    saving
-                      ? "bg-green-400 cursor-not-allowed"
-                      : "bg-green-600 hover:bg-green-700",
-                  )}
+                  className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs flex items-center justify-center gap-2"
                 >
-                  {saving ? "Creating..." : "Create Template"}
-                </button>
+                  <Save size={16} />
+                  <span>{saving ? "Saving Template..." : "Create Template"}</span>
+                </Button>
 
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(content);
-                      showToast("success", "Copied");
-                    } catch {
-                      showToast("error", "Clipboard denied");
-                    }
-                  }}
-                  className="w-full h-10 rounded border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                <Button
+                  variant="outline"
+                  onClick={handleCopyHtml}
+                  className="w-full h-9 text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-2"
                 >
-                  Copy HTML
-                </button>
+                  {copiedHtml ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
+                  <span>{copiedHtml ? "HTML Copied!" : "Copy HTML"}</span>
+                </Button>
 
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={handleReset}
-                  className="w-full h-10 rounded border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  className="w-full h-9 text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-2"
                 >
-                  Reset / Clear
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => router.back()}
-                  className="w-full h-10 rounded border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+                  <RotateCcw size={15} />
+                  <span>Reset / Clear</span>
+                </Button>
               </div>
-            </div>
-
-            <div className="bg-gray-100 rounded-lg border border-gray-200 p-4">
-              <p className="text-xs text-gray-700">
-                Preview shows raw HTML. Do server validation for security.
-              </p>
             </div>
           </div>
         </div>

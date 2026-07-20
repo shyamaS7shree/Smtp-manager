@@ -84,10 +84,16 @@ export default function Header() {
 
   useEffect(() => {
     loadUser();
-    fetchNotifications();
+    // Non-blocking deferred notification fetch
+    const timer = setTimeout(() => {
+      fetchNotifications();
+    }, 500);
 
     window.addEventListener('storage', loadUser);
-    return () => window.removeEventListener('storage', loadUser);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('storage', loadUser);
+    };
   }, [])
 
   useEffect(() => {
@@ -159,6 +165,7 @@ export default function Header() {
           <input
             type="text"
             placeholder="Search..."
+            suppressHydrationWarning
             className="h-9 w-full rounded-md border border-input bg-background pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
         </div>

@@ -38,7 +38,7 @@ interface Campaign {
   name: string;
   type: string;
   group: string;
-  sendGroup: string;
+  sendGroup?: string;
   list: string;
   list_uid?: string;
   segment: string;
@@ -405,85 +405,41 @@ export default function AutoresponderCampaignsContent() {
         return;
       }
 
-      const detailedCampaigns: Campaign[] = await Promise.all(
-        records.map(async (item: any, index: number) => {
-          const detail = await fetchOneCampaign(item.campaign_uid);
+      const mappedCampaigns: Campaign[] = records.map((item: any, index: number) => {
+        const stats = item?.stats || {};
+        return {
+          id: Number(item?.campaign_id ?? item?.id ?? Date.now() + index),
+          uniqueId: String(item?.campaign_uid ?? item?.uid ?? ""),
+          campaign_uid: String(item?.campaign_uid ?? item?.uid ?? ""),
+          name: String(item?.name ?? "Untitled"),
+          type: "Autoresponder",
+          status: String(item?.status ?? "Active"),
+          list: item?.list?.name || item?.list_name || "-",
+          list_uid: item?.list?.list_uid || item?.list_uid || "",
+          listId: item?.list?.list_uid || item?.list_uid || "",
+          subject: item?.subject || "-",
+          fromName: item?.from_name || "-",
+          fromEmail: item?.from_email || "-",
+          replyTo: item?.reply_to || "-",
+          toName: item?.to_name || "[EMAIL]",
+          segment: item?.segment?.name || item?.segment_name || "-",
+          group: item?.group?.name || item?.group_name || "-",
+          sendGroup: item?.send_group?.name || item?.send_group || "-",
+          recurring: item?.recurring_status ? "Yes" : "No",
+          sendAt: item?.send_at || "",
+          dateAdded: item?.date_added || item?.created_at || "",
+          startedAt: item?.started_at || "",
+          template: item?.template?.name || item?.template_name || "-",
+          delivered: String(stats?.processed_subscribers ?? stats?.delivered ?? item?.delivered ?? 0),
+          opens: String(stats?.opens_count ?? stats?.opens ?? item?.opens ?? 0),
+          clicks: String(stats?.clicks_count ?? stats?.clicks ?? item?.clicks ?? 0),
+          bounces: String(stats?.bounces_count ?? stats?.bounces ?? item?.bounces ?? 0),
+          unsubs: String(stats?.unsubscribes_count ?? stats?.unsubs ?? item?.unsubs ?? 0),
+        };
+      });
 
-          let segmentName = "-";
-          const listUid = detail?.list?.list_uid;
-          if (listUid) {
-            try {
-              const segRes = await fetch(
-                `/api/get-all-segments?list_uid=${encodeURIComponent(listUid)}`,
-                {
-                  method: "GET",
-                  headers: {
-                    Authorization: `Bearer ${token()}`,
-                    Accept: "application/json",
-                  },
-                },
-              );
-              const segData = await segRes.json();
-              const segments = segData?.data?.records || segData?.records || [];
-              if (segments.length > 0) {
-                segmentName = segments[0]?.name ?? "-";
-              }
-            } catch (e) {
-              console.warn("segments fetch failed:", listUid);
-            }
-          }
-
-          let templateName = "-";
-          const templateUid =
-            detail?.template?.template_uid ?? detail?.template_uid;
-          if (templateUid) {
-            templateName = await fetchTemplateName(templateUid);
-          }
-
-          return {
-            id: Number(item?.campaign_id ?? Date.now() + index),
-            uniqueId: String(item?.campaign_uid ?? ""),
-            campaign_uid: String(item?.campaign_uid ?? ""),
-            name: String(detail?.name ?? item?.name ?? "Untitled"),
-            type: "Autoresponder",
-            status: String(detail?.status ?? item?.status ?? "Active"),
-            list: detail?.list?.name ?? "-",
-            list_uid: detail?.list?.list_uid ?? "",
-            listId: detail?.list?.list_uid ?? "",
-            subject: detail?.subject ?? "-",
-            fromName: detail?.from_name ?? "-",
-            fromEmail: detail?.from_email ?? "-",
-            replyTo: detail?.reply_to ?? "-",
-            toName: detail?.to_name ?? "[EMAIL]",
-            segment: segmentName,
-            group: detail?.group?.name ?? "-",
-            recurring: item?.recurring_status ? "Yes" : "No",
-            sendAt: detail?.send_at ?? "",
-            dateAdded: detail?.date_added ?? "",
-            startedAt: "",
-            template: templateName,
-            delivered: String(detail?.stats?.processed_subscribers ?? 0),
-            opens: String(detail?.stats?.opens_count ?? 0),
-            clicks: String(detail?.stats?.clicks_count ?? 0),
-            bounces: String(detail?.stats?.bounces_count ?? 0),
-            unsubs: String(detail?.stats?.unsubscribes_count ?? 0),
-          };
-        }),
-      );
-
-      setCampaigns(detailedCampaigns);
-      localStorage.setItem("cachedAutoresponders", JSON.stringify(detailedCampaigns));
-
-      const withStats = await Promise.all(
-        detailedCampaigns.map(async (campaign) => {
-          if (!campaign.campaign_uid) return campaign;
-          const stats = await fetchCampaignStats(campaign.campaign_uid);
-          return stats ? { ...campaign, ...stats } : campaign;
-        }),
-      );
-
-      setCampaigns(withStats);
-      localStorage.setItem("cachedAutoresponders", JSON.stringify(withStats));
+      setCampaigns(mappedCampaigns);
+      localStorage.setItem("cachedAutoresponders", JSON.stringify(mappedCampaigns));
     } catch (error) {
       console.error("fetchCampaigns error:", error);
     } finally {

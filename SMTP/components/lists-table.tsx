@@ -537,32 +537,31 @@ export default function EmailListManager() {
     []
   );
 
-  // ✅ NEW: fetch counts for ALL lists and update state
+  // ✅ NEW: fetch counts for lists in small batches to prevent network choking
   const fetchAllSubscriberCounts = useCallback(
     async (listsToCount: EmailList[], sessionToken: string) => {
-      // Mark all as loading
       const loadingState: Record<string, boolean> = {};
       listsToCount.forEach((l) => { loadingState[l.uniqueId] = true; });
       setCountsLoading(loadingState);
 
-      // Fetch all in parallel
-      const results = await Promise.all(
-        listsToCount.map(async (list) => {
-          const count = await fetchSubscriberCountForList(list.uniqueId, sessionToken);
-          return { uid: list.uniqueId, count };
-        })
-      );
-
-      // Update counts and clear loading
-      const newCounts: Record<string, number> = {};
-      const doneLoading: Record<string, boolean> = {};
-      results.forEach(({ uid, count }) => {
-        newCounts[uid] = count;
-        doneLoading[uid] = false;
-      });
-
-      setSubscriberCounts(newCounts);
-      setCountsLoading(doneLoading);
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < listsToCount.length; i += BATCH_SIZE) {
+        const chunk = listsToCount.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          chunk.map(async (list) => {
+            const count = await fetchSubscriberCountForList(list.uniqueId, sessionToken);
+            return { uid: list.uniqueId, count };
+          })
+        );
+        const chunkCounts: Record<string, number> = {};
+        const chunkDone: Record<string, boolean> = {};
+        results.forEach(({ uid, count }) => {
+          chunkCounts[uid] = count;
+          chunkDone[uid] = false;
+        });
+        setSubscriberCounts((prev) => ({ ...prev, ...chunkCounts }));
+        setCountsLoading((prev) => ({ ...prev, ...chunkDone }));
+      }
     },
     [fetchSubscriberCountForList]
   );
@@ -573,45 +572,38 @@ export default function EmailListManager() {
         const storedSession = localStorage.getItem("userSession");
         if (storedSession) {
           const session: UserSession = JSON.parse(storedSession);
-          setUserSession(session);
-          await fetchListsFromAPI(session);
+          if (session && session.token) {
+            setUserSession(session);
+            await fetchListsFromAPI(session);
+
+            // Session age verification (graceful)
+            if (session.loginTime) {
+              const loginTimeMs = new Date(session.loginTime).getTime();
+              if (!isNaN(loginTimeMs)) {
+                const sessionAge = Date.now() - loginTimeMs;
+                const twentyFourHours = 24 * 60 * 60 * 1000;
+                if (sessionAge > twentyFourHours) {
+                  localStorage.removeItem("userSession");
+                  localStorage.removeItem("cachedLists");
+                  window.location.href = window.location.origin + "/authentication";
+                  return;
+                }
+              }
+            }
+          } else {
+            window.location.href = "/authentication";
+          }
         } else {
           window.location.href = "/authentication";
         }
       } catch (error) {
         console.error("💥 Client: Error loading user session:", error);
-        window.location.href = "/authentication";
       } finally {
         setIsLoading(false);
       }
     };
 
     checkAuthentication();
-  }, []);
-
-  useEffect(() => {
-    const checkAuthOnLoad = () => {
-      const storedSession = localStorage.getItem("userSession");
-      if (!storedSession) {
-        window.location.href = window.location.origin + "/authentication";
-        return;
-      }
-      try {
-        const session = JSON.parse(storedSession);
-        const sessionAge = Date.now() - new Date(session.loginTime).getTime();
-        const twentyFourHours = 24 * 60 * 60 * 1000;
-        if (sessionAge > twentyFourHours) {
-          localStorage.removeItem("userSession");
-          localStorage.removeItem("cachedLists");
-          window.location.href = window.location.origin + "/authentication";
-        }
-      } catch (error) {
-        localStorage.removeItem("userSession");
-        localStorage.removeItem("cachedLists");
-        window.location.href = window.location.origin + "/authentication";
-      }
-    };
-    checkAuthOnLoad();
   }, []);
 
   // ✅ NEW: fetch subscriber counts once when lists are loaded (no continuous polling)
@@ -799,20 +791,21 @@ export default function EmailListManager() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    setIsLoading(true);
     try {
       const storedSession = localStorage.getItem("userSession");
-      if (storedSession) {
-        const session = JSON.parse(storedSession);
+      const session = storedSession ? JSON.parse(storedSession) : userSession;
+      if (session) {
         await fetchListsFromAPI(session);
-        // Also refresh counts immediately after
-        if (userSession) {
-          await fetchAllSubscriberCounts(lists, userSession.token);
+        if (session.token) {
+          await fetchAllSubscriberCounts(lists, session.token);
         }
       }
     } catch (error) {
       console.error("❌ Error refreshing:", error);
     } finally {
       setIsRefreshing(false);
+      setIsLoading(false);
     }
   };
 
@@ -1219,19 +1212,6 @@ export default function EmailListManager() {
       if (!userSession) return;
       await fetchListsFromAPI(userSession);
     } catch (error) { console.log(error); }
-  };
-
-  const handleRefresh = async () => {
-    try {
-      setIsLoading(true);
-      if (userSession) {
-        await fetchListsFromAPI(userSession);
-      }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleArchiveList = (id: string) => {
