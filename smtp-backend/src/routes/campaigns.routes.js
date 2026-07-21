@@ -1,7 +1,7 @@
-const express    = require('express');
+const express = require('express');
 const nodemailer = require('nodemailer');
-const pool       = require('../config/db');
-const { protect }     = require('../middleware/auth');
+const pool = require('../config/db');
+const { protect } = require('../middleware/auth');
 const { generateUid } = require('../helpers/uid');
 
 const { checkRealtimeBlacklist } = require('../helpers/blacklist');
@@ -11,35 +11,40 @@ const router = express.Router();
 // ── Format campaign row ────────────────────────────────────────
 const fmt = (r) => ({
   campaign_uid: r.uid,
-  campaign_id:  r.id,
-  name:         r.name,
-  type:         r.type,
-  group:        r.group_name || r.group || '',
-  send_group:   r.send_group || '',
-  event:        r.event || 'Subscribe',
-  time:         r.time || 'Immediately',
-  status:       r.status,
-  from_name:    r.from_name,
-  from_email:   r.from_email,
-  to_name:      r.to_name || '',
-  reply_to:     r.reply_to,
-  subject:      r.subject,
-  send_at:      r.send_at,
-  started_at:   r.started_at || r.send_at || r.created_at,
-  sent_at:      r.sent_at,
-  list:         { list_uid: r.list_uid, name: r.list_name || r.list_display_name || '' },
-  segment:      r.segment_uid ? { segment_uid: r.segment_uid, name: r.segment_name || '' } : null,
-  template:     { template_uid: r.template_uid, name: r.template_name || '' },
+  campaign_id: r.id,
+  name: r.name,
+  type: r.type,
+  group: r.group_name || r.group || '',
+  send_group: r.send_group || '',
+  event: r.event || 'Subscribe',
+  time: r.time || 'Immediately',
+  status: r.status,
+  from_name: r.from_name,
+  from_email: r.from_email,
+  to_name: r.to_name || '',
+  reply_to: r.reply_to,
+  subject: r.subject,
+  send_at: r.send_at,
+  started_at: r.started_at || r.send_at || r.created_at,
+  sent_at: r.sent_at,
+  list: { list_uid: r.list_uid, name: r.list_name || r.list_display_name || '' },
+  segment: r.segment_uid ? { segment_uid: r.segment_uid, name: r.segment_name || '' } : null,
+  template: { template_uid: r.template_uid, name: r.template_name || '' },
+  content: r.content,
+  email_stats: r.email_stats,
+  plain_text_email: r.plain_text_email,
+  auto_plain_text: r.auto_plain_text,
+  plain_text: r.plain_text,
   stats: {
-    total_subscribers:     r.total_subscribers,
+    total_subscribers: r.total_subscribers,
     processed_subscribers: r.processed_subscribers,
-    opens_count:           r.open_count,
-    unique_opens:          r.unique_open_count,
-    clicks_count:          r.click_count,
-    unique_clicks:         r.unique_click_count,
-    bounces_count:         r.bounce_count,
-    unsubscribes_count:    r.unsubscribe_count,
-    open_rate:  r.total_subscribers > 0 ? `${((r.open_count  / r.total_subscribers) * 100).toFixed(2)}%` : '0.00%',
+    opens_count: r.open_count,
+    unique_opens: r.unique_open_count,
+    clicks_count: r.click_count,
+    unique_clicks: r.unique_click_count,
+    bounces_count: r.bounce_count,
+    unsubscribes_count: r.unsubscribe_count,
+    open_rate: r.total_subscribers > 0 ? `${((r.open_count / r.total_subscribers) * 100).toFixed(2)}%` : '0.00%',
     click_rate: r.total_subscribers > 0 ? `${((r.click_count / r.total_subscribers) * 100).toFixed(2)}%` : '0.00%',
   },
   date_added: r.created_at,
@@ -58,10 +63,10 @@ const sendCampaignEmails = async (campaign) => {
 
   try {
     const transporter = nodemailer.createTransport({
-      host:   process.env.SMTP_HOST,
-      port:   parseInt(process.env.SMTP_PORT) || 587,
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT) || 587,
       secure: process.env.SMTP_SECURE === 'true',
-      auth:   { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
 
     const { rows: subscribers } = await pool.query(
@@ -84,15 +89,15 @@ const sendCampaignEmails = async (campaign) => {
       try {
         const html = (campaign.content || '')
           .replace(/\[FNAME\]/gi, sub.first_name || '')
-          .replace(/\[LNAME\]/gi, sub.last_name  || '')
+          .replace(/\[LNAME\]/gi, sub.last_name || '')
           .replace(/\[EMAIL\]/gi, sub.email);
 
         await transporter.sendMail({
-          from:    `"${campaign.from_name}" <${campaign.from_email}>`,
-          to:      sub.email,
+          from: `"${campaign.from_name}" <${campaign.from_email}>`,
+          to: sub.email,
           subject: campaign.subject,
           html,
-          text:    campaign.plain_text_email || '',
+          text: campaign.plain_text_email || '',
           replyTo: campaign.reply_to || campaign.from_email,
         });
         sent++;
@@ -118,11 +123,13 @@ const getFullCampaign = async (uid, userId) => {
   const { rows } = await pool.query(
     `SELECT c.*,
             l.name AS list_name, l.display_name AS list_display_name,
-            t.name AS template_name
+            t.name AS template_name,
+            s.name AS segment_name
      FROM campaigns c
      LEFT JOIN lists l ON c.list_uid = l.uid
      LEFT JOIN templates t ON c.template_uid = t.uid
-     WHERE c.uid = $1 AND c.user_id = $2`,
+     LEFT JOIN list_segments s ON c.segment_uid = s.uid
+     WHERE (c.uid = $1 OR c.id::text = $1) AND c.user_id = $2`,
     [uid, userId]
   );
   return rows.length ? fmt(rows[0]) : null;
@@ -131,19 +138,22 @@ const getFullCampaign = async (uid, userId) => {
 // ── GET /api/get-all-campaigns ────────────────────────────────
 router.get('/get-all-campaigns', protect, async (req, res) => {
   try {
-    const page   = parseInt(req.query.page_number) || 1;
-    const limit  = parseInt(req.query.per_page)    || 10;
+    const page = parseInt(req.query.page_number) || 1;
+    const limit = parseInt(req.query.per_page) || 10;
     const offset = (page - 1) * limit;
     const typeFilter = req.query.type;
+    const listUidFilter = req.query.list_uid;
 
     let query = `
       SELECT c.*,
              l.name AS list_name, l.display_name AS list_display_name,
              t.name AS template_name,
+             s.name AS segment_name,
              COUNT(*) OVER() AS total_count
       FROM campaigns c
       LEFT JOIN lists l ON c.list_uid = l.uid
       LEFT JOIN templates t ON c.template_uid = t.uid
+      LEFT JOIN list_segments s ON c.segment_uid = s.uid
       WHERE c.user_id = $1
     `;
     const params = [req.user.id];
@@ -151,6 +161,11 @@ router.get('/get-all-campaigns', protect, async (req, res) => {
     if (typeFilter && typeFilter !== 'all') {
       params.push(typeFilter);
       query += ` AND c.type = $${params.length}`;
+    }
+
+    if (listUidFilter) {
+      params.push(listUidFilter);
+      query += ` AND c.list_uid = $${params.length}`;
     }
 
     params.push(limit, offset);
@@ -198,7 +213,7 @@ router.post('/create-a-campaign', protect, async (req, res) => {
   try {
     const b = req.body;
     const required = ['name', 'from_name', 'from_email', 'subject', 'send_at', 'list_uid'];
-    const missing  = required.filter(k => !b[k]);
+    const missing = required.filter(k => !b[k]);
     if (missing.length) return res.status(400).json({ status: 'error', message: `Missing: ${missing.join(', ')}` });
 
     const uid = generateUid();
@@ -233,7 +248,7 @@ router.post('/create-a-campaign', protect, async (req, res) => {
 router.put('/update-a-campaign', protect, async (req, res) => {
   try {
     const uid = req.query.campaign_uid || req.body.campaign_uid;
-    const b   = req.body;
+    const b = req.body;
 
     const { rows } = await pool.query(
       `UPDATE campaigns SET
@@ -247,6 +262,10 @@ router.put('/update-a-campaign', protect, async (req, res) => {
          content        = COALESCE($8, content),
          plain_text_email = COALESCE($9, plain_text_email),
          send_at        = COALESCE($10, send_at),
+         segment_uid    = COALESCE($13, segment_uid),
+         email_stats    = COALESCE($14, email_stats),
+         auto_plain_text= COALESCE($15, auto_plain_text),
+         type           = COALESCE($16, type),
          updated_at     = NOW()
        WHERE uid = $11 AND user_id = $12
        RETURNING *`,
@@ -257,6 +276,10 @@ router.put('/update-a-campaign', protect, async (req, res) => {
         b.content || null, b.plain_text_email || null,
         b.send_at ? new Date(b.send_at) : null,
         uid, req.user.id,
+        b.segment_uid !== undefined ? b.segment_uid : null,
+        b.email_stats !== undefined ? b.email_stats : null,
+        b.auto_plain_text || null,
+        b.type || null,
       ]
     );
 
@@ -287,7 +310,7 @@ router.post('/copy-a-campaign', protect, async (req, res) => {
     const { rows: orig } = await pool.query('SELECT * FROM campaigns WHERE uid = $1 AND user_id = $2', [uid, req.user.id]);
     if (!orig.length) return res.status(404).json({ status: 'error', message: 'Campaign not found' });
 
-    const o      = orig[0];
+    const o = orig[0];
     const newUid = generateUid();
 
     await pool.query(
@@ -335,12 +358,12 @@ router.put('/mark-a-campaign-as-sent', protect, async (req, res) => {
 // ── PUT /api/pause-unpause-a-campaign?campaign_uid= ───────────
 router.put('/pause-unpause-a-campaign', protect, async (req, res) => {
   try {
-    const uid  = req.query.campaign_uid || req.body.campaign_uid;
+    const uid = req.query.campaign_uid || req.body.campaign_uid;
     const curr = await pool.query('SELECT status FROM campaigns WHERE uid = $1 AND user_id = $2', [uid, req.user.id]);
     if (!curr.rows.length) return res.status(404).json({ status: 'error', message: 'Campaign not found' });
 
     const newStatus = curr.rows[0].status === 'paused' ? 'sending' : 'paused';
-    const { rows }  = await pool.query(
+    const { rows } = await pool.query(
       'UPDATE campaigns SET status = $1, updated_at = NOW() WHERE uid = $2 AND user_id = $3 RETURNING *',
       [newStatus, uid, req.user.id]
     );
