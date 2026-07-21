@@ -696,13 +696,32 @@ const applySelectedTemplate = async () => {
       try {
         if (userInfo?.token) await loadLists(userInfo.token);
 
-        const cachedCampaigns = safeParse<any[]>(localStorage.getItem("cachedCampaigns"), []);
-        let campaign = cachedCampaigns.find((x) => x?.id === editId || x?.campaign_uid === String(editId) || x?.uniqueId === String(editId));
+        let campaign = null;
+
+        // Force fresh fetch from backend first to get complete data (email_stats, templates, etc.)
+        if (userInfo?.token) {
+          try {
+            const q = editId ? `campaign_uid=${encodeURIComponent(String(editId))}` : "";
+            const oneRes = await fetch(`/api/get-one-campaign?${q}&token=${encodeURIComponent(userInfo.token)}`, { method: "GET", headers: { Accept: "application/json" } });
+            if (oneRes.ok) {
+              const oneJson = await oneRes.json();
+              campaign = oneJson?.data?.record || oneJson?.data?.data || oneJson?.data || oneJson;
+            }
+          } catch (e) {
+            console.error("Failed to fetch fresh campaign", e);
+          }
+        }
+
+        // Fallback to cache if API failed
+        if (!campaign) {
+          const cachedCampaigns = safeParse<any[]>(localStorage.getItem("cachedCampaigns"), []);
+          campaign = cachedCampaigns.find((x) => x?.id === editId || x?.campaign_uid === String(editId) || x?.uniqueId === String(editId));
+        }
 
         if (!campaign && userInfo?.token) {
           try {
             const allCampaignsRes = await fetch(
-              `/api/campaigns/all-campaigns/fetchAllCampaigns?page_number=1&per_page=500&token=${encodeURIComponent(userInfo.token)}`,
+              `/api/get-all-campaigns?page_number=1&per_page=500&token=${encodeURIComponent(userInfo.token)}`,
               { method: "GET", headers: { Accept: "application/json" } }
             );
             const allCampaignsJson = await allCampaignsRes.json();
@@ -711,37 +730,50 @@ const applySelectedTemplate = async () => {
           } catch {}
         }
 
-        if (!campaign && userInfo?.token) {
-          const q = editId ? `campaign_uid=${encodeURIComponent(String(editId))}` : "";
-          const oneRes = await fetch(`/api/campaigns/get-one-campaign?${q}&token=${encodeURIComponent(userInfo.token)}`, { method: "GET", headers: { Accept: "application/json" } });
-          if (oneRes.ok) {
-            const oneJson = await oneRes.json();
-            const remoteCampaign = oneJson?.data?.data || oneJson?.data || oneJson;
-            if (remoteCampaign) campaign = remoteCampaign;
-          }
-        }
-
         if (campaign) {
           setCampaignUid(String(campaign?.campaign_uid || campaign?.unique_id || campaign?.id || ""));
           setCampaignId(String(campaign?.id || ""));
+          
+          const loadedListUid = campaign?.list?.list_uid ?? campaign?.list_uid ?? campaign?.list ?? prev.list;
+          
+          const loadedTemplateUid = campaign?.template?.template_uid ?? campaign?.template_uid ?? "";
+          if (loadedTemplateUid) {
+            setTemplateUid(String(loadedTemplateUid));
+          }
           setFormData((prev) => ({
             ...prev,
             campaignName: campaign?.campaignName ?? campaign?.name ?? campaign?.campaign_name ?? prev.campaignName,
-            type: campaign?.type ?? campaign?.campaign_type ?? prev.type,
-            list: campaign?.list ?? campaign?.list_uid ?? prev.list,
-            segment: campaign?.segment ?? campaign?.segment_uid ?? prev.segment,
+            type: campaign?.type ? (campaign.type.toLowerCase() === "autoresponder" ? "Autoresponder" : "Regular") : prev.type,
+            list: loadedListUid,
+            segment: campaign?.segment?.segment_uid ?? campaign?.segment_uid ?? campaign?.segment ?? prev.segment,
             group: campaign?.group ?? prev.group,
             sendGroup: campaign?.sendGroup ?? campaign?.send_group ?? prev.sendGroup,
             subject: campaign?.subject ?? prev.subject,
-            templateName: campaign?.templateName ?? campaign?.template_uid ?? prev.templateName,
+            templateName: campaign?.template?.name ?? campaign?.templateName ?? campaign?.template_uid ?? prev.templateName,
             content: campaign?.content ?? prev.content,
             fromName: campaign?.fromName ?? campaign?.from_name ?? prev.fromName,
             fromEmail: campaign?.fromEmail ?? campaign?.from_email ?? prev.fromEmail,
             replyTo: campaign?.replyTo ?? campaign?.reply_to ?? prev.replyTo,
             autoPlainText: campaign?.auto_plain_text ? (campaign.auto_plain_text === "yes" ? "Yes" : "No") : prev.autoPlainText,
+            plainTextEmail: campaign?.plain_text_email ? (campaign.plain_text_email === "yes" ? "Yes" : "No") : prev.plainTextEmail,
             plainTextContent: campaign?.plain_text ?? prev.plainTextContent,
             emailStats: campaign?.email_stats ?? prev.emailStats,
           }));
+
+          // Fetch segments for this list so the segment dropdown populates
+          if (loadedListUid && loadedListUid !== "Choose" && userInfo?.token) {
+            try {
+              const segRes = await fetch(`/api/get-all-segments?list_uid=${encodeURIComponent(loadedListUid)}`, {
+                headers: { Authorization: `Bearer ${userInfo.token}`, Accept: "application/json" }
+              });
+              if (segRes.ok) {
+                const segData = await segRes.json();
+                setAvailableSegments(segData?.data?.records || segData?.records || []);
+              }
+            } catch (err) {
+              console.error("Failed to load segments on edit", err);
+            }
+          }
         } else {
           setPageError("Unable to load campaign for editing.");
         }
@@ -839,8 +871,11 @@ const applySelectedTemplate = async () => {
       if (!(formData.content || "").trim()) { setPageError("Content is required."); setActiveFormTab("Template"); return; }
 
       const templatePayload = buildTemplatePayload();
-      const tRes = await fetch(TEMPLATE_URL, {
-        method: "POST",
+      const isUpdatingTemplate = !!templateUid;
+      const tUrl = isUpdatingTemplate ? `/api/update-template?template_uid=${encodeURIComponent(templateUid)}` : TEMPLATE_URL;
+      
+      const tRes = await fetch(tUrl, {
+        method: isUpdatingTemplate ? "PUT" : "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json", Accept: "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ ...templatePayload, ...(token ? { token } : {}) }),
@@ -871,7 +906,7 @@ const applySelectedTemplate = async () => {
       const campaignPayload = buildCampaignPayloadStrict(newTemplateUid);
       const targetUrl = editId ? UPDATE_CAMPAIGN_URL : CAMPAIGN_URL;
       const cRes = await fetch(targetUrl, {
-        method: "POST",
+        method: editId ? "PUT" : "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json", Accept: "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ ...campaignPayload, ...(token ? { token } : {}) }),
@@ -1254,7 +1289,7 @@ const applySelectedTemplate = async () => {
                     ))}
                   </div>
                   <div className="flex flex-col-reverse gap-2 pt-6 sm:flex-row sm:justify-end">
-                    <Button className="bg-green-500 text-white hover:bg-green-600 px-6" onClick={submitCampaign} disabled={saving}>{saving ? "Creating..." : "✓ Confirm & Create"}</Button>
+                    <Button className="bg-green-500 text-white hover:bg-green-600 px-6" onClick={submitCampaign} disabled={saving}>{saving ? (editId ? "Updating..." : "Creating...") : (editId ? "✓ Confirm & Update" : "✓ Confirm & Create")}</Button>
                     <Button variant="outline" className="px-6" onClick={handleCloseForm}>Cancel</Button>
                   </div>
                 </div>

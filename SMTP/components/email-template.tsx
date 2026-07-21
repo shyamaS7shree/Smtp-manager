@@ -25,6 +25,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { token } from "@/components/common/http";
 
 export type TemplateRecord = {
@@ -121,6 +131,7 @@ export default function EmailTemplatesComponent() {
   const [previewTemplate, setPreviewTemplate] = useState<TemplateRecord | null>(null);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [copiedUid, setCopiedUid] = useState<string | null>(null);
+  const [deleteTargetUid, setDeleteTargetUid] = useState<string | null>(null);
 
   const goToEdit = (uid: string) => {
     router.push(`/email-templates/templates/edit/${uid}`);
@@ -177,17 +188,14 @@ export default function EmailTemplatesComponent() {
     }
   };
 
-  const handleDelete = async (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (!id) return;
-    const ok = window.confirm("Are you sure you want to delete this template?");
-    if (!ok) return;
+  const confirmDelete = async () => {
+    if (!deleteTargetUid) return;
 
     setLoading(true);
     setError(null);
     try {
       const apiUrl = new URL("/api/template/delete-template", window.location.origin);
-      apiUrl.searchParams.set("template_uid", id);
+      apiUrl.searchParams.set("template_uid", deleteTargetUid);
 
       const res = await fetch(apiUrl.toString(), {
         method: "DELETE",
@@ -208,7 +216,13 @@ export default function EmailTemplatesComponent() {
       setError(e?.message || "Failed to delete template");
     } finally {
       setLoading(false);
+      setDeleteTargetUid(null);
     }
+  };
+
+  const promptDelete = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setDeleteTargetUid(id);
   };
 
   useEffect(() => {
@@ -503,7 +517,7 @@ export default function EmailTemplatesComponent() {
                         <Pencil size={16} />
                       </button>
                       <button
-                        onClick={(e) => handleDelete(tpl.template_uid, e)}
+                        onClick={(e) => promptDelete(tpl.template_uid, e)}
                         className="p-2 bg-white text-slate-800 rounded-lg shadow-sm hover:bg-red-600 hover:text-white transition-colors"
                         title="Delete Template"
                       >
@@ -620,7 +634,7 @@ export default function EmailTemplatesComponent() {
                               <Pencil size={16} />
                             </button>
                             <button
-                              onClick={(e) => handleDelete(tpl.template_uid, e)}
+                              onClick={(e) => promptDelete(tpl.template_uid, e)}
                               className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                               title="Delete"
                             >
@@ -750,6 +764,24 @@ export default function EmailTemplatesComponent() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AlertDialog open={!!deleteTargetUid} onOpenChange={(open) => !open && setDeleteTargetUid(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the template.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white">
+              {loading ? "Deleting..." : "Delete Template"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

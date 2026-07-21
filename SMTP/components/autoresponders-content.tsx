@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiUrl, token } from "@/components/common/http";
 import { useRouter } from "next/navigation";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { toast } from "sonner";
 
 interface Campaign {
   id: number;
@@ -66,6 +68,7 @@ export default function AutoresponderCampaignsContent() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("Autoresponders");
+  const [confirmAction, setConfirmAction] = useState<{message: string, onConfirm: () => void} | null>(null);
   const [showToggleColumns, setShowToggleColumns] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaigns, setSelectedCampaigns] = useState<number[]>([]);
@@ -160,7 +163,7 @@ export default function AutoresponderCampaignsContent() {
 
   const handleExport = () => {
     if (campaigns.length === 0) {
-      alert("No campaigns to export");
+      toast.error("No campaigns to export");
       return;
     }
 
@@ -472,28 +475,28 @@ export default function AutoresponderCampaignsContent() {
       if (res.ok && data?.status === "success") {
         await fetchCampaigns();
       } else {
-        alert(data?.message || "Failed to pause/unpause campaign.");
+        toast.error(data?.message || "Failed to pause/unpause campaign.");
       }
     } catch (error) {
       console.error("Pause/unpause error:", error);
-      alert("An error occurred.");
+      toast.error("An error occurred.");
     }
   };
 
   const deleteCampaign = async (campaignUid: string) => {
-    try {
-      if (!window.confirm("Are you sure you want to delete this campaign?"))
-        return;
-
+    setConfirmAction({
+      message: "Are you sure you want to delete this campaign?",
+      onConfirm: async () => {
+        try {
       const session = JSON.parse(localStorage.getItem("userSession") || "{}");
       const userToken = session?.token;
 
       if (!userToken) {
-        alert("User is not authenticated");
+        toast.error("User is not authenticated");
         return;
       }
 
-      const response = await fetch(`/api/campaigns/delete-a-campaign`, {
+      const response = await fetch(`/api/delete-a-campaign`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -506,14 +509,16 @@ export default function AutoresponderCampaignsContent() {
       const data = await response.json();
       if (response.ok && data?.status === "success") {
         await fetchCampaigns();
-        alert("Campaign deleted successfully");
+        toast.success("Campaign deleted successfully");
       } else {
-        alert(data?.message || "Failed to delete campaign");
+        toast.error(data?.message || "Failed to delete campaign");
       }
-    } catch (error) {
-      console.error("Delete campaign error:", error);
-      alert("Error deleting campaign");
-    }
+        } catch (error) {
+          console.error("Delete campaign error:", error);
+          toast.error("Error deleting campaign");
+        }
+      }
+    });
   };
 
   const formatDateTime = (value: string | Date | undefined | null) => {
@@ -656,26 +661,26 @@ export default function AutoresponderCampaignsContent() {
                 onChange={(e) => {
                   const action = e.target.value;
                   if (action === "delete") {
-                    if (
-                      window.confirm(
-                        `Delete ${selectedCampaigns.length} selected campaigns?`,
-                      )
-                    ) {
-                      const updatedCampaigns = campaigns.filter(
-                        (c) => !selectedCampaigns.includes(c.id),
-                      );
-                      setCampaigns(updatedCampaigns);
-                      localStorage.setItem(
-                        "cachedAutoresponders",
-                        JSON.stringify(updatedCampaigns),
-                      );
-                      setSelectedCampaigns([]);
-                      setShowBulkActions(false);
-                      alert("Selected campaigns deleted successfully!");
-                    }
+                    setConfirmAction({
+                      message: `Delete ${selectedCampaigns.length} selected campaigns?`,
+                      onConfirm: () => {
+                        const updatedCampaigns = campaigns.filter(
+                          (c) => !selectedCampaigns.includes(c.id),
+                        );
+                        setCampaigns(updatedCampaigns);
+                        localStorage.setItem(
+                          "cachedAutoresponders",
+                          JSON.stringify(updatedCampaigns),
+                        );
+                        setSelectedCampaigns([]);
+                        setShowBulkActions(false);
+                        toast.success("Selected campaigns deleted successfully!");
+                      }
+                    });
+                  } else {
+                    setSelectedCampaigns([]);
+                    setShowBulkActions(false);
                   }
-                  setSelectedCampaigns([]);
-                  setShowBulkActions(false);
                   e.target.value = "choose";
                 }}
                 defaultValue="choose"

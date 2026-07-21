@@ -104,7 +104,7 @@ export default function CreateEditSegmentPage() {
     const loadCampaigns = async () => {
       try {
         const res = await fetch(
-          `/api/get-all-campaigns?page_number=1&per_page=100&token=${token()}`
+          `/api/get-all-campaigns?page_number=1&per_page=100&list_uid=${encodeURIComponent(listId)}&token=${token()}`
         );
         const data = await res.json();
         const records: any[] = data?.data?.records || data?.records || [];

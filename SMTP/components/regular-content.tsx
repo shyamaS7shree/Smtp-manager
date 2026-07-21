@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiUrl, token } from "@/components/common/http";
 import { useRouter } from "next/navigation";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 interface Campaign {
   id: number;
@@ -67,6 +68,7 @@ export default function CampaignsContent() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("All Campaigns");
   const [showToggleColumns, setShowToggleColumns] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{message: string, onConfirm: () => void} | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaigns, setSelectedCampaigns] = useState<number[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -155,7 +157,7 @@ export default function CampaignsContent() {
 
   const handleExport = () => {
     if (campaigns.length === 0) {
-      alert("No campaigns to export");
+      toast.error("No campaigns to export");
       return;
     }
 
@@ -468,11 +470,11 @@ const fetchCampaigns = async () => {
       if (res.ok && data?.status === "success") {
         await fetchCampaigns();
       } else {
-        alert(data?.message || "Failed to pause/unpause campaign.");
+        toast.error(data?.message || "Failed to pause/unpause campaign.");
       }
     } catch (error) {
       console.error("Pause/unpause error:", error);
-      alert("An error occurred.");
+      toast.error("An error occurred.");
     }
   };
 
@@ -483,7 +485,7 @@ const fetchCampaigns = async () => {
       const userToken = session?.token || "";
 
       if (!userToken) {
-        alert("User is not authenticated");
+        toast.error("User is not authenticated");
         return;
       }
 
@@ -505,13 +507,13 @@ const fetchCampaigns = async () => {
 
       if (res.ok && data?.status === "success") {
         await fetchCampaigns();
-        alert("Campaign marked as sent successfully");
+        toast.success("Campaign marked as sent successfully");
       } else {
-        alert(data?.message || "Failed to mark campaign as sent.");
+        toast.error(data?.message || "Failed to mark campaign as sent.");
       }
     } catch (error) {
       console.error("Mark as sent error:", error);
-      alert("An error occurred.");
+      toast.error("An error occurred.");
     }
   };
 
@@ -521,11 +523,11 @@ const fetchCampaigns = async () => {
       const userToken = session?.token;
 
       if (!userToken) {
-        alert("User is not authenticated");
+        toast.error("User is not authenticated");
         return;
       }
 
-      const response = await fetch(`/api/campaigns/copy-a-campaign`, {
+      const response = await fetch(`/api/copy-a-campaign`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -541,30 +543,30 @@ const fetchCampaigns = async () => {
       const data = await response.json();
       if (response.ok && data?.status === "success") {
         await fetchCampaigns();
-        alert("Campaign copied successfully");
+        toast.success("Campaign copied successfully");
       } else {
-        alert(data?.message || "Failed to copy campaign");
+        toast.error(data?.message || "Failed to copy campaign");
       }
     } catch (error) {
       console.error("Copy campaign error:", error);
-      alert("Error copying campaign");
+      toast.error("Error copying campaign");
     }
   };
 
   const deleteCampaign = async (campaignUid: string) => {
-    try {
-      if (!window.confirm("Are you sure you want to delete this campaign?"))
-        return;
-
+    setConfirmAction({
+      message: "Are you sure you want to delete this campaign?",
+      onConfirm: async () => {
+        try {
       const session = JSON.parse(localStorage.getItem("userSession") || "{}");
       const userToken = session?.token;
 
       if (!userToken) {
-        alert("User is not authenticated");
+        toast.error("User is not authenticated");
         return;
       }
 
-      const response = await fetch(`/api/campaigns/delete-a-campaign`, {
+      const response = await fetch(`/api/delete-a-campaign`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -577,14 +579,16 @@ const fetchCampaigns = async () => {
       const data = await response.json();
       if (response.ok && data?.status === "success") {
         await fetchCampaigns();
-        alert("Campaign deleted successfully");
+        toast.success("Campaign deleted successfully");
       } else {
-        alert(data?.message || "Failed to delete campaign");
+        toast.error(data?.message || "Failed to delete campaign");
       }
-    } catch (error) {
-      console.error("Delete campaign error:", error);
-      alert("Error deleting campaign");
-    }
+        } catch (error) {
+          console.error("Delete campaign error:", error);
+          toast.error("Error deleting campaign");
+        }
+      }
+    });
   };
 
   const formatDateTime = (value: string | Date | undefined | null) => {
@@ -685,33 +689,38 @@ const fetchCampaigns = async () => {
       const wellPerformingCampaigns = campaigns.filter(isWellPerformingCampaign);
       
       if (wellPerformingCampaigns.length === 0) {
-        alert("No well-performing campaigns found to move.");
+        toast.error("No well-performing campaigns found to move.");
         return;
       }
 
       const confirmMessage = `Found ${wellPerformingCampaigns.length} well-performing campaign(s). Do you want to move them to the regular campaigns category?`;
-      if (!window.confirm(confirmMessage)) {
-        return;
-      }
+      setConfirmAction({
+        message: confirmMessage,
+        onConfirm: async () => {
+          try {
+            // Update campaign types to "Regular" for well-performing campaigns
+            const updatedCampaigns = campaigns.map(campaign => {
+              if (isWellPerformingCampaign(campaign)) {
+                return { ...campaign, type: "Regular" };
+              }
+              return campaign;
+            });
 
-      // Update campaign types to "Regular" for well-performing campaigns
-      const updatedCampaigns = campaigns.map(campaign => {
-        if (isWellPerformingCampaign(campaign)) {
-          return { ...campaign, type: "Regular" };
+            setCampaigns(updatedCampaigns);
+            localStorage.setItem("cachedCampaigns", JSON.stringify(updatedCampaigns));
+            
+            toast.success(`Successfully moved ${wellPerformingCampaigns.length} campaigns to regular category!`);
+            
+            // Refresh the campaigns data
+            await fetchCampaigns();
+          } catch (error) {
+            console.error("Error moving campaigns to regular category:", error);
+            toast.error("An error occurred while moving campaigns to regular category.");
+          }
         }
-        return campaign;
       });
-
-      setCampaigns(updatedCampaigns);
-      localStorage.setItem("cachedCampaigns", JSON.stringify(updatedCampaigns));
-      
-      alert(`Successfully moved ${wellPerformingCampaigns.length} campaigns to regular category!`);
-      
-      // Refresh the campaigns data
-      await fetchCampaigns();
     } catch (error) {
-      console.error("Error moving campaigns to regular category:", error);
-      alert("An error occurred while moving campaigns to regular category.");
+      console.error("Error setting up move action:", error);
     }
   };
 
@@ -812,23 +821,22 @@ const fetchCampaigns = async () => {
                 onChange={(e) => {
                   const action = e.target.value;
                   if (action === "delete") {
-                    if (
-                      window.confirm(
-                        `Delete ${selectedCampaigns.length} selected campaigns?`,
-                      )
-                    ) {
-                      const updatedCampaigns = campaigns.filter(
-                        (c) => !selectedCampaigns.includes(c.id),
-                      );
-                      setCampaigns(updatedCampaigns);
-                      localStorage.setItem(
-                        "cachedCampaigns",
-                        JSON.stringify(updatedCampaigns),
-                      );
-                      setSelectedCampaigns([]);
-                      setShowBulkActions(false);
-                      alert("Selected campaigns deleted successfully!");
-                    }
+                    setConfirmAction({
+                      message: `Delete ${selectedCampaigns.length} selected campaigns?`,
+                      onConfirm: () => {
+                        const updatedCampaigns = campaigns.filter(
+                          (c) => !selectedCampaigns.includes(c.id),
+                        );
+                        setCampaigns(updatedCampaigns);
+                        localStorage.setItem(
+                          "cachedCampaigns",
+                          JSON.stringify(updatedCampaigns),
+                        );
+                        setSelectedCampaigns([]);
+                        setShowBulkActions(false);
+                        toast.success("Selected campaigns deleted successfully!");
+                      }
+                    });
                   } else if (action === "copy") {
                     const copiesToAdd: Campaign[] = [];
                     selectedCampaigns.forEach((id) => {
@@ -859,9 +867,11 @@ const fetchCampaigns = async () => {
                       "cachedCampaigns",
                       JSON.stringify(updatedCampaigns),
                     );
-                    alert(
-                      `${selectedCampaigns.length} campaigns copied successfully!`,
+                    toast.success(
+                      `Selected ${selectedCampaigns.length} campaigns copied to draft!`,
                     );
+                    setSelectedCampaigns([]);
+                    setShowBulkActions(false);
                   } else if (action === "pause") {
                     for (const id of selectedCampaigns) {
                       const campaign = campaigns.find((c) => c.id === id);
