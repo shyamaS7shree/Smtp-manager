@@ -518,39 +518,44 @@ const fetchCampaigns = async () => {
   };
 
   const copyCampaign = async (campaign: Campaign) => {
-    try {
-      const session = JSON.parse(localStorage.getItem("userSession") || "{}");
-      const userToken = session?.token;
+    setConfirmAction({
+      message: "Are you sure you want to copy this campaign?",
+      onConfirm: async () => {
+        try {
+          const session = JSON.parse(localStorage.getItem("userSession") || "{}");
+          const userToken = session?.token;
 
-      if (!userToken) {
-        toast.error("User is not authenticated");
-        return;
+          if (!userToken) {
+            toast.error("User is not authenticated");
+            return;
+          }
+
+          const response = await fetch(`/api/copy-a-campaign`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${userToken}`,
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              token: userToken,
+              campaign_uid: campaign.campaign_uid || campaign.uniqueId,
+            }),
+          });
+
+          const data = await response.json();
+          if (response.ok && data?.status === "success") {
+            await fetchCampaigns();
+            toast.success("Campaign copied successfully");
+          } else {
+            toast.error(data?.message || "Failed to copy campaign");
+          }
+        } catch (error) {
+          console.error("Copy campaign error:", error);
+          toast.error("An error occurred while copying campaign");
+        }
       }
-
-      const response = await fetch(`/api/copy-a-campaign`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${userToken}`,
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          token: userToken,
-          campaign_uid: campaign.campaign_uid,
-        }),
-      });
-
-      const data = await response.json();
-      if (response.ok && data?.status === "success") {
-        await fetchCampaigns();
-        toast.success("Campaign copied successfully");
-      } else {
-        toast.error(data?.message || "Failed to copy campaign");
-      }
-    } catch (error) {
-      console.error("Copy campaign error:", error);
-      toast.error("Error copying campaign");
-    }
+    });
   };
 
   const deleteCampaign = async (campaignUid: string) => {
@@ -1211,7 +1216,7 @@ const fetchCampaigns = async () => {
                           />
                         </div>
                       ) : (
-                        <div className="h-8.5 flex items-center justify-center text-slate-300 text-xs font-light pointer-events-none select-none">—</div>
+                        <div className="h-8.5 flex items-center justify-center text-slate-300 text-xs font-light pointer-events-none select-none"></div>
                       )}
                     </th>
                   ))}
@@ -1472,6 +1477,18 @@ const fetchCampaigns = async () => {
           </Button>
         </div>
       </div>
+      {confirmAction && (
+        <ConfirmModal
+          open={!!confirmAction}
+          onOpenChange={(open) => !open && setConfirmAction(null)}
+          title="Confirmation"
+          description={confirmAction.message}
+          onConfirm={() => {
+            confirmAction.onConfirm();
+            setConfirmAction(null);
+          }}
+        />
+      )}
     </div>
   );
 }

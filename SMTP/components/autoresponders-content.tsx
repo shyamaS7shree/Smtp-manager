@@ -483,6 +483,47 @@ export default function AutoresponderCampaignsContent() {
     }
   };
 
+  const copyCampaign = async (campaign: Campaign) => {
+    setConfirmAction({
+      message: "Are you sure you want to copy this campaign?",
+      onConfirm: async () => {
+        try {
+          const session = JSON.parse(localStorage.getItem("userSession") || "{}");
+          const userToken = session?.token;
+
+          if (!userToken) {
+            toast.error("User is not authenticated");
+            return;
+          }
+
+          const response = await fetch(`/api/copy-a-campaign`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${userToken}`,
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              token: userToken,
+              campaign_uid: campaign.campaign_uid || campaign.uniqueId,
+            }),
+          });
+
+          const data = await response.json();
+          if (response.ok && data?.status === "success") {
+            await fetchCampaigns();
+            toast.success("Campaign copied successfully");
+          } else {
+            toast.error(data?.message || "Failed to copy campaign");
+          }
+        } catch (error) {
+          console.error("Copy campaign error:", error);
+          toast.error("An error occurred while copying campaign");
+        }
+      }
+    });
+  };
+
   const deleteCampaign = async (campaignUid: string) => {
     setConfirmAction({
       message: "Are you sure you want to delete this campaign?",
@@ -929,7 +970,7 @@ export default function AutoresponderCampaignsContent() {
                           />
                         </div>
                       ) : (
-                        <div className="h-8.5 flex items-center justify-center text-slate-300 text-xs font-light pointer-events-none select-none">—</div>
+                        <div className="h-8.5 flex items-center justify-center text-slate-300 text-xs font-light pointer-events-none select-none"></div>
                       )}
                     </th>
                   ))}
@@ -1107,6 +1148,37 @@ export default function AutoresponderCampaignsContent() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    copyCampaign(campaign);
+                                    document
+                                      .getElementById(
+                                        `action-row-${campaign.id}`,
+                                      )
+                                      ?.classList.add("hidden");
+                                  }}
+                                  className="w-8 h-8 bg-blue-400 hover:bg-blue-500 rounded flex items-center justify-center transition-colors"
+                                  title="Copy"
+                                >
+                                  <span className="text-white text-xs">📋</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedCampaignInfo(campaign);
+                                    setShowCampaignInfoModal(true);
+                                    document
+                                      .getElementById(
+                                        `action-row-${campaign.id}`,
+                                      )
+                                      ?.classList.add("hidden");
+                                  }}
+                                  className="w-8 h-8 bg-green-500 hover:bg-green-600 rounded flex items-center justify-center transition-colors"
+                                  title="View Info"
+                                >
+                                  <span className="text-white text-xs">👁️</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     if (campaign.campaign_uid) {
                                       deleteCampaign(campaign.campaign_uid);
                                     }
@@ -1138,6 +1210,18 @@ export default function AutoresponderCampaignsContent() {
           </table>
         </div>
       </div>
+      {confirmAction && (
+        <ConfirmModal
+          open={!!confirmAction}
+          onOpenChange={(open) => !open && setConfirmAction(null)}
+          title="Confirmation"
+          description={confirmAction.message}
+          onConfirm={() => {
+            confirmAction.onConfirm();
+            setConfirmAction(null);
+          }}
+        />
+      )}
     </div>
   );
 }
