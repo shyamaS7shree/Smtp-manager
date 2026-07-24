@@ -138,6 +138,13 @@ export default function SuppressionListContent() {
     setShowCreateForm(true)
   }
 
+  const handleSaveNew = () => {
+    setShowCreateForm(false)
+    setEditingItem(null)
+    fetchSuppressionList()
+    setShowSuccess(true)
+  }
+
   const handleExportCSV = () => {
     const headers = ['Email', 'Reason', 'Date Added']
     const csvContent = [

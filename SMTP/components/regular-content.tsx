@@ -31,6 +31,7 @@ import {
 import { apiUrl, token } from "@/components/common/http";
 import { useRouter } from "next/navigation";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { toast } from "sonner";
 
 interface Campaign {
   id: number;
@@ -68,7 +69,7 @@ export default function CampaignsContent() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("All Campaigns");
   const [showToggleColumns, setShowToggleColumns] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{message: string, onConfirm: () => void} | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ message: string, onConfirm: () => void } | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaigns, setSelectedCampaigns] = useState<number[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -310,9 +311,9 @@ export default function CampaignsContent() {
         bounces: String(source?.bounces ?? source?.bounce_count ?? 0),
         unsubs: String(
           source?.unsubs ??
-            source?.unsubscribe_count ??
-            source?.unsubscribed ??
-            0,
+          source?.unsubscribe_count ??
+          source?.unsubscribed ??
+          0,
         ),
         delivered: String(source?.delivered ?? source?.sent ?? 0),
       };
@@ -322,121 +323,123 @@ export default function CampaignsContent() {
     }
   };
 
-let regularTemplatesCache: any[] | null = null;
+  let regularTemplatesCache: any[] | null = null;
 
-const fetchTemplateName = async (templateUid: string) => {
-  if (!templateUid || templateUid === "-") return "-";
-  try {
-    if (!regularTemplatesCache) {
-      const cached = localStorage.getItem("cachedTemplates");
-      if (cached) regularTemplatesCache = JSON.parse(cached);
+  const fetchTemplateName = async (templateUid: string) => {
+    if (!templateUid || templateUid === "-") return "-";
+    try {
+      if (!regularTemplatesCache) {
+        const cached = localStorage.getItem("cachedTemplates");
+        if (cached) regularTemplatesCache = JSON.parse(cached);
+      }
+      if (!regularTemplatesCache) {
+        const res = await fetch(
+          `/api/get-all-templates?page_number=1&per_page=100`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token()}`,
+              Accept: "application/json",
+            },
+          },
+        );
+        const data = await res.json();
+        const templates = data?.data?.records || data?.records || [];
+        regularTemplatesCache = templates;
+        try { localStorage.setItem("cachedTemplates", JSON.stringify(templates)); } catch { }
+      }
+      const found = (regularTemplatesCache || []).find(
+        (t: any) => String(t.template_uid) === String(templateUid),
+      );
+      return found?.name ?? "-";
+    } catch (e) {
+      return "-";
     }
-    if (!regularTemplatesCache) {
+  };
+
+  const fetchOneCampaign = async (campaignUid: string) => {
+    try {
       const res = await fetch(
-        `/api/get-all-templates?page_number=1&per_page=100`,
+        `/api/get-one-campaign?campaign_uid=${encodeURIComponent(campaignUid)}`,
         {
-          method: "GET",
+          method: 'GET',
           headers: {
             Authorization: `Bearer ${token()}`,
-            Accept: "application/json",
+            Accept: 'application/json',
           },
-        },
-      );
-      const data = await res.json();
-      const templates = data?.data?.records || data?.records || [];
-      regularTemplatesCache = templates;
-      try { localStorage.setItem("cachedTemplates", JSON.stringify(templates)); } catch {}
+        }
+      )
+      const data = await res.json()
+      return data?.data?.record || {}
+    } catch (e) {
+      console.warn('get-one-campaign failed:', campaignUid)
+      return {}
     }
-    const found = (regularTemplatesCache || []).find(
-      (t: any) => String(t.template_uid) === String(templateUid),
-    );
-    return found?.name ?? "-";
-  } catch (e) {
-    return "-";
   }
-};
 
-const fetchOneCampaign = async (campaignUid: string) => {
-  try {
-    const res = await fetch(
-      `/api/get-one-campaign?campaign_uid=${encodeURIComponent(campaignUid)}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token()}`,
-          Accept: 'application/json',
-        },
-      }
-    )
-    const data = await res.json()
-    return data?.data?.record || {}
-  } catch (e) {
-    console.warn('get-one-campaign failed:', campaignUid)
-    return {}
+  const fetchCampaigns = async () => {
+    try {
+      const res = await fetch(
+        `/api/get-all-campaigns?page_number=1&per_page=50`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token()}`,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+      const data = await res.json()
+      const records = data?.data?.records || []
+
+      if (!Array.isArray(records) || records.length === 0) return
+
+      const mappedCampaigns: Campaign[] = records
+        .filter((item: any) => String(item?.type || '').toLowerCase() === 'regular')
+        .map((item: any, index: number) => {
+          const stats = item?.stats || {}
+          return {
+            id: Number(item?.campaign_id ?? item?.id ?? Date.now() + index),
+            uniqueId: String(item?.campaign_uid ?? item?.uid ?? ''),
+            campaign_uid: String(item?.campaign_uid ?? item?.uid ?? ''),
+            name: String(item?.name ?? 'Untitled'),
+            type: String(item?.type ?? 'Regular'),
+            status: String(item?.status ?? 'Draft'),
+            list: item?.list?.name || item?.list_name || '-',
+            list_uid: item?.list?.list_uid || item?.list_uid || '',
+            listId: item?.list?.list_uid || item?.list_uid || '',
+            subject: item?.subject || '-',
+            fromName: item?.from_name || '-',
+            fromEmail: item?.from_email || '-',
+            replyTo: item?.reply_to || '-',
+            toName: item?.to_name || '[EMAIL]',
+            segment: item?.segment?.name || item?.segment_name || '-',
+            group: item?.group?.name || item?.group_name || '-',
+            recurring: item?.recurring_status ? 'Yes' : 'No',
+            sendAt: item?.send_at || '',
+            dateAdded: item?.date_added || item?.created_at || '',
+            startedAt: item?.started_at || '',
+            template: item?.template?.name || item?.template_name || '-',
+            delivered: String(stats?.processed_subscribers ?? stats?.delivered ?? item?.delivered ?? 0),
+            opens: String(stats?.opens_count ?? stats?.opens ?? item?.opens ?? 0),
+            clicks: String(stats?.clicks_count ?? stats?.clicks ?? item?.clicks ?? 0),
+            bounces: String(stats?.bounces_count ?? stats?.bounces ?? item?.bounces ?? 0),
+            unsubs: String(stats?.unsubscribes_count ?? stats?.unsubs ?? item?.unsubs ?? 0),
+            sendGroup: item?.send_group?.name || item?.send_group || '',
+            lastUpdated: item?.updated_at || '',
+          }
+        })
+
+      setCampaigns(mappedCampaigns)
+      localStorage.setItem('cachedCampaigns', JSON.stringify(mappedCampaigns))
+
+    } catch (error) {
+      console.error('fetchCampaigns error:', error)
+    } finally {
+      setLoading(false);
+    }
   }
-}
-
-const fetchCampaigns = async () => {
-  try {
-    const res = await fetch(
-      `/api/get-all-campaigns?page_number=1&per_page=50`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token()}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-    const data = await res.json()
-    const records = data?.data?.records || []
-
-    if (!Array.isArray(records) || records.length === 0) return
-
-    const mappedCampaigns: Campaign[] = records.map((item: any, index: number) => {
-      const stats = item?.stats || {}
-      return {
-        id: Number(item?.campaign_id ?? item?.id ?? Date.now() + index),
-        uniqueId: String(item?.campaign_uid ?? item?.uid ?? ''),
-        campaign_uid: String(item?.campaign_uid ?? item?.uid ?? ''),
-        name: String(item?.name ?? 'Untitled'),
-        type: String(item?.type ?? 'Regular'),
-        status: String(item?.status ?? 'Draft'),
-        list: item?.list?.name || item?.list_name || '-',
-        list_uid: item?.list?.list_uid || item?.list_uid || '',
-        listId: item?.list?.list_uid || item?.list_uid || '',
-        subject: item?.subject || '-',
-        fromName: item?.from_name || '-',
-        fromEmail: item?.from_email || '-',
-        replyTo: item?.reply_to || '-',
-        toName: item?.to_name || '[EMAIL]',
-        segment: item?.segment?.name || item?.segment_name || '-',
-        group: item?.group?.name || item?.group_name || '-',
-        recurring: item?.recurring_status ? 'Yes' : 'No',
-        sendAt: item?.send_at || '',
-        dateAdded: item?.date_added || item?.created_at || '',
-        startedAt: item?.started_at || '',
-        template: item?.template?.name || item?.template_name || '-',
-        delivered: String(stats?.processed_subscribers ?? stats?.delivered ?? item?.delivered ?? 0),
-        opens: String(stats?.opens_count ?? stats?.opens ?? item?.opens ?? 0),
-        clicks: String(stats?.clicks_count ?? stats?.clicks ?? item?.clicks ?? 0),
-        bounces: String(stats?.bounces_count ?? stats?.bounces ?? item?.bounces ?? 0),
-        unsubs: String(stats?.unsubscribes_count ?? stats?.unsubs ?? item?.unsubs ?? 0),
-        sendGroup: item?.send_group?.name || item?.send_group || '',
-        lastUpdated: item?.updated_at || '',
-      }
-    })
-
-    setCampaigns(mappedCampaigns)
-    localStorage.setItem('cachedCampaigns', JSON.stringify(mappedCampaigns))
-
-  } catch (error) {
-    console.error('fetchCampaigns error:', error)
-  } finally {
-    setLoading(false);
-  }
-}
 
   useEffect(() => {
     fetchCampaigns();
@@ -563,31 +566,31 @@ const fetchCampaigns = async () => {
       message: "Are you sure you want to delete this campaign?",
       onConfirm: async () => {
         try {
-      const session = JSON.parse(localStorage.getItem("userSession") || "{}");
-      const userToken = session?.token;
+          const session = JSON.parse(localStorage.getItem("userSession") || "{}");
+          const userToken = session?.token;
 
-      if (!userToken) {
-        toast.error("User is not authenticated");
-        return;
-      }
+          if (!userToken) {
+            toast.error("User is not authenticated");
+            return;
+          }
 
-      const response = await fetch(`/api/delete-a-campaign`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${userToken}`,
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ token: userToken, campaign_uid: campaignUid }),
-      });
+          const response = await fetch(`/api/delete-a-campaign`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${userToken}`,
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ token: userToken, campaign_uid: campaignUid }),
+          });
 
-      const data = await response.json();
-      if (response.ok && data?.status === "success") {
-        await fetchCampaigns();
-        toast.success("Campaign deleted successfully");
-      } else {
-        toast.error(data?.message || "Failed to delete campaign");
-      }
+          const data = await response.json();
+          if (response.ok && data?.status === "success") {
+            await fetchCampaigns();
+            toast.success("Campaign deleted successfully");
+          } else {
+            toast.error(data?.message || "Failed to delete campaign");
+          }
         } catch (error) {
           console.error("Delete campaign error:", error);
           toast.error("Error deleting campaign");
@@ -635,7 +638,7 @@ const fetchCampaigns = async () => {
         );
         if (found) return found.name || found.displayName || "-";
       }
-    } catch {}
+    } catch { }
     return campaign.list && campaign.list !== campaign.list_uid ? campaign.list : "-";
   };
 
@@ -668,14 +671,14 @@ const fetchCampaigns = async () => {
   // Function to determine if a campaign is well-performing
   const isWellPerformingCampaign = (campaign: Campaign): boolean => {
     const performance = calculateCampaignPerformance(campaign);
-    
+
     // Define performance criteria
     const goodOpenRate = performance.openRate >= 20; // 20% or higher open rate
     const goodClickRate = performance.clickRate >= 2; // 2% or higher click rate
     const lowBounceRate = performance.bounceRate <= 5; // 5% or lower bounce rate
     const lowUnsubRate = performance.unsubRate <= 1; // 1% or lower unsubscribe rate
     const minimumDelivered = performance.delivered >= 100; // At least 100 delivered emails
-    
+
     // Campaign is well-performing if it meets most criteria
     const criteriaMet = [
       goodOpenRate,
@@ -684,7 +687,7 @@ const fetchCampaigns = async () => {
       lowUnsubRate,
       minimumDelivered
     ].filter(Boolean).length;
-    
+
     return criteriaMet >= 3; // Must meet at least 3 out of 5 criteria
   };
 
@@ -692,7 +695,7 @@ const fetchCampaigns = async () => {
   const moveWellPerformingToRegular = async () => {
     try {
       const wellPerformingCampaigns = campaigns.filter(isWellPerformingCampaign);
-      
+
       if (wellPerformingCampaigns.length === 0) {
         toast.error("No well-performing campaigns found to move.");
         return;
@@ -713,9 +716,9 @@ const fetchCampaigns = async () => {
 
             setCampaigns(updatedCampaigns);
             localStorage.setItem("cachedCampaigns", JSON.stringify(updatedCampaigns));
-            
+
             toast.success(`Successfully moved ${wellPerformingCampaigns.length} campaigns to regular category!`);
-            
+
             // Refresh the campaigns data
             await fetchCampaigns();
           } catch (error) {
@@ -756,11 +759,10 @@ const fetchCampaigns = async () => {
                 {columns.map((column) => (
                   <div key={column} className="flex items-center space-x-2">
                     <div
-                      className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer ${
-                        visibleColumns[column]
+                      className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer ${visibleColumns[column]
                           ? "bg-blue-500 border-blue-500"
                           : "border-gray-300"
-                      }`}
+                        }`}
                       onClick={() =>
                         handleColumnToggle(column, !visibleColumns[column])
                       }
@@ -918,105 +920,90 @@ const fetchCampaigns = async () => {
 
         {/* Campaign Info Modal */}
         {showCampaignInfoModal && selectedCampaignInfo && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
-              <div className="bg-blue-500 text-white p-4 flex items-center gap-2">
-                <div className="w-5 h-5 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                  <span className="text-blue-500 font-bold text-sm">i</span>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden transform transition-all">
+              <div className="bg-gradient-to-r from-[#00a8ff] to-[#0097e6] text-white p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-inner">
+                    <span className="text-white font-bold text-sm">i</span>
+                  </div>
+                  <h3 className="text-base font-semibold tracking-wide">Campaign Info</h3>
                 </div>
-                <h3 className="font-medium">Campaign info</h3>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowCampaignInfoModal(false)}
-                  className="ml-auto h-6 w-6 p-0 text-white hover:bg-white hover:bg-opacity-20"
+                  className="h-8 w-8 p-0 rounded-full text-white hover:bg-white/20 transition-colors"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </Button>
               </div>
-              <div className="p-4 space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Type</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.type}
-                  </span>
+
+              <div className="p-5">
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100 flex flex-col justify-center">
+                    <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-0.5">Type</span>
+                    <span className="font-medium text-sm text-gray-900 capitalize">{selectedCampaignInfo.type}</span>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100 flex flex-col justify-center">
+                    <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-0.5">Status</span>
+                    <div>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                        {selectedCampaignInfo.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="col-span-2 bg-gray-50 rounded-xl p-2.5 border border-gray-100">
+                    <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-0.5 block">Name</span>
+                    <span className="font-medium text-sm text-gray-900">{selectedCampaignInfo.name}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Status</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.status}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Name</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.name}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">List/Segment</span>
-                  <span className="font-medium">
-                    {(() => {
-                      const foundList = availableLists.find(
-                        (l) => l.id === selectedCampaignInfo.list,
-                      );
-                      return foundList
-                        ? foundList.name
-                        : selectedCampaignInfo.list;
-                    })()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subject</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.subject || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">From name</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.fromName || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">From email</span>
-                  <span className="font-medium text-blue-600">
-                    {selectedCampaignInfo.fromEmail || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Reply to</span>
-                  <span className="font-medium text-blue-600">
-                    {selectedCampaignInfo.replyTo || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">To name</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.toName || "[EMAIL]"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Date added</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.dateAdded
-                      ? new Date(
-                          selectedCampaignInfo.dateAdded,
-                        ).toLocaleString()
-                      : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Send at</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.sendAt}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Started at</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.startedAt}
-                  </span>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">List/Segment</span>
+                    <span className="text-[13px] font-semibold text-gray-900 text-right break-words">
+                      {(() => {
+                        const foundList = availableLists.find((l) => l.id === selectedCampaignInfo.list);
+                        return foundList ? foundList.name : selectedCampaignInfo.list;
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Subject</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">
+                      {selectedCampaignInfo.subject || "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">From</span>
+                    <div className="text-right leading-tight break-words">
+                      <span className="text-[13px] font-medium text-gray-900 block">{selectedCampaignInfo.fromName || "-"}</span>
+                      <span className="text-[11px] text-blue-600 font-medium">{selectedCampaignInfo.fromEmail || "-"}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Reply to</span>
+                    <span className="text-[13px] font-medium text-blue-600 text-right break-words">{selectedCampaignInfo.replyTo || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">To name</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">{selectedCampaignInfo.toName || "[EMAIL]"}</span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Date added</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">
+                      {selectedCampaignInfo.dateAdded ? new Date(selectedCampaignInfo.dateAdded).toLocaleString() : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Send at</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">{selectedCampaignInfo.sendAt || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Started at</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">{selectedCampaignInfo.startedAt || "-"}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1322,10 +1309,10 @@ const fetchCampaigns = async () => {
                           {formatDateTime(
                             String(
                               campaign.sendAt ||
-                                campaign.startedAt ||
-                                campaign.dateAdded ||
-                                campaign.lastUpdated ||
-                                "",
+                              campaign.startedAt ||
+                              campaign.dateAdded ||
+                              campaign.lastUpdated ||
+                              "",
                             ),
                           )}
                         </td>

@@ -943,105 +943,90 @@ export default function CampaignsContent() {
 
         {/* Campaign Info Modal */}
         {showCampaignInfoModal && selectedCampaignInfo && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
-              <div className="bg-blue-500 text-white p-4 flex items-center gap-2">
-                <div className="w-5 h-5 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                  <span className="text-blue-500 font-bold text-sm">i</span>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden transform transition-all">
+              <div className="bg-gradient-to-r from-[#00a8ff] to-[#0097e6] text-white p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-inner">
+                    <span className="text-white font-bold text-sm">i</span>
+                  </div>
+                  <h3 className="text-base font-semibold tracking-wide">Campaign Info</h3>
                 </div>
-                <h3 className="font-medium">Campaign info</h3>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowCampaignInfoModal(false)}
-                  className="ml-auto h-6 w-6 p-0 text-white hover:bg-white hover:bg-opacity-20"
+                  className="h-8 w-8 p-0 rounded-full text-white hover:bg-white/20 transition-colors"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </Button>
               </div>
-              <div className="p-4 space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Type</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.type}
-                  </span>
+              
+              <div className="p-5">
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100 flex flex-col justify-center">
+                    <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-0.5">Type</span>
+                    <span className="font-medium text-sm text-gray-900 capitalize">{selectedCampaignInfo.type}</span>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100 flex flex-col justify-center">
+                    <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-0.5">Status</span>
+                    <div>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                        {selectedCampaignInfo.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="col-span-2 bg-gray-50 rounded-xl p-2.5 border border-gray-100">
+                    <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-0.5 block">Name</span>
+                    <span className="font-medium text-sm text-gray-900">{selectedCampaignInfo.name}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Status</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.status}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Name</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.name}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">List/Segment</span>
-                  <span className="font-medium">
-                    {(() => {
-                      const foundList = availableLists.find(
-                        (l) => l.id === selectedCampaignInfo.list,
-                      );
-                      return foundList
-                        ? foundList.name
-                        : selectedCampaignInfo.list;
-                    })()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subject</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.subject || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">From name</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.fromName || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">From email</span>
-                  <span className="font-medium text-blue-600">
-                    {selectedCampaignInfo.fromEmail || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Reply to</span>
-                  <span className="font-medium text-blue-600">
-                    {selectedCampaignInfo.replyTo || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">To name</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.toName || "[EMAIL]"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Date added</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.dateAdded
-                      ? new Date(
-                          selectedCampaignInfo.dateAdded,
-                        ).toLocaleString()
-                      : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Send at</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.sendAt}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Started at</span>
-                  <span className="font-medium">
-                    {selectedCampaignInfo.startedAt}
-                  </span>
+                
+                <div className="space-y-1">
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">List/Segment</span>
+                    <span className="text-[13px] font-semibold text-gray-900 text-right break-words">
+                      {(() => {
+                        const foundList = availableLists.find((l) => l.id === selectedCampaignInfo.list);
+                        return foundList ? foundList.name : selectedCampaignInfo.list;
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Subject</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">
+                      {selectedCampaignInfo.subject || "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">From</span>
+                    <div className="text-right leading-tight break-words">
+                      <span className="text-[13px] font-medium text-gray-900 block">{selectedCampaignInfo.fromName || "-"}</span>
+                      <span className="text-[11px] text-blue-600 font-medium">{selectedCampaignInfo.fromEmail || "-"}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Reply to</span>
+                    <span className="text-[13px] font-medium text-blue-600 text-right break-words">{selectedCampaignInfo.replyTo || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">To name</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">{selectedCampaignInfo.toName || "[EMAIL]"}</span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Date added</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">
+                      {selectedCampaignInfo.dateAdded ? new Date(selectedCampaignInfo.dateAdded).toLocaleString() : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 border-b border-gray-100 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Send at</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">{selectedCampaignInfo.sendAt || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-start py-1.5 gap-4">
+                    <span className="text-[13px] text-gray-500 font-medium whitespace-nowrap">Started at</span>
+                    <span className="text-[13px] font-medium text-gray-900 text-right break-words">{selectedCampaignInfo.startedAt || "-"}</span>
+                  </div>
                 </div>
               </div>
             </div>
