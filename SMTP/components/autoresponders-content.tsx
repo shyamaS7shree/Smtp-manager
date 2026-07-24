@@ -1118,7 +1118,15 @@ export default function AutoresponderCampaignsContent() {
                         </td>
                       )}
                       {visibleColumns.Status && (
-                        <td className="p-3 text-sm">{campaign.status}</td>
+                        <td className="p-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
+                            campaign.status?.toLowerCase() === 'draft' ? 'bg-[#e6fcf5] text-[#0ca678]' :
+                            campaign.status?.toLowerCase() === 'sent' || campaign.status?.toLowerCase() === 'active' ? 'bg-blue-50 text-blue-600' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {campaign.status}
+                          </span>
+                        </td>
                       )}
                       {visibleColumns.Delivered && (
                         <td className="p-3 text-sm">{campaign.delivered}</td>
@@ -1178,21 +1186,23 @@ export default function AutoresponderCampaignsContent() {
                                 >
                                   <span className="text-white text-xs">✏️</span>
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    copyCampaign(campaign);
-                                    document
-                                      .getElementById(
-                                        `action-row-${campaign.id}`,
-                                      )
-                                      ?.classList.add("hidden");
-                                  }}
-                                  className="w-8 h-8 bg-blue-400 hover:bg-blue-500 rounded flex items-center justify-center transition-colors"
-                                  title="Copy"
-                                >
-                                  <span className="text-white text-xs">📋</span>
-                                </button>
+                                {!(campaign.status?.toLowerCase() === 'sent' || campaign.status?.toLowerCase() === 'active') && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      copyCampaign(campaign);
+                                      document
+                                        .getElementById(
+                                          `action-row-${campaign.id}`,
+                                        )
+                                        ?.classList.add("hidden");
+                                    }}
+                                    className="w-8 h-8 bg-blue-400 hover:bg-blue-500 rounded flex items-center justify-center transition-colors"
+                                    title="Copy"
+                                  >
+                                    <span className="text-white text-xs">📋</span>
+                                  </button>
+                                )}
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1209,18 +1219,20 @@ export default function AutoresponderCampaignsContent() {
                                 >
                                   <span className="text-white text-xs">👁️</span>
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (campaign.campaign_uid) {
-                                      deleteCampaign(campaign.campaign_uid);
-                                    }
-                                  }}
-                                  className="w-8 h-8 bg-red-400 hover:bg-red-500 rounded flex items-center justify-center transition-colors"
-                                  title="Delete"
-                                >
-                                  <span className="text-white text-xs">🗑️</span>
-                                </button>
+                                {!(campaign.status?.toLowerCase() === 'sent' || campaign.status?.toLowerCase() === 'active') && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (campaign.campaign_uid) {
+                                        deleteCampaign(campaign.campaign_uid);
+                                      }
+                                    }}
+                                    className="w-8 h-8 bg-red-400 hover:bg-red-500 rounded flex items-center justify-center transition-colors"
+                                    title="Delete"
+                                  >
+                                    <span className="text-white text-xs">🗑️</span>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
