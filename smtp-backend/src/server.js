@@ -18,6 +18,8 @@ const emailBlacklistRoutes = require('./routes/email-blacklist.routes');
 const suppressionRoutes = require('./routes/suppression-list.routes');
 const ipBlacklistRoutes = require('./routes/ip-blacklist.routes');
 const filesRoutes = require('./routes/files.routes');
+const trackingRoutes = require('./routes/tracking.routes');
+const { startBounceProcessor } = require('./helpers/bounce-handler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -60,6 +62,7 @@ app.use('/api', emailBlacklistRoutes);
 app.use('/api', suppressionRoutes);
 app.use('/api', ipBlacklistRoutes);
 app.use('/api', filesRoutes);
+app.use('/api/track', trackingRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -81,6 +84,9 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`✅ SMTP Backend running → http://localhost:${PORT}`);
+  
+  // Start the background worker for parsing free bounces
+  startBounceProcessor();
 });
 
 module.exports = app;

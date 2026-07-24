@@ -87,20 +87,62 @@ const sendCampaignEmails = async (campaign) => {
       }
 
       try {
-        const html = (campaign.content || '')
+        let html = (campaign.content || '')
           .replace(/\[FNAME\]/gi, sub.first_name || '')
           .replace(/\[LNAME\]/gi, sub.last_name || '')
           .replace(/\[EMAIL\]/gi, sub.email);
 
-        await transporter.sendMail({
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+        
+        // 1. Inject Open Tracking Pixel
+        const openPixel = `<img src="${backendUrl}/api/track/open/${campaign.uid}/${sub.uid}" width="1" height="1" style="display:none;" />`;
+        html = html.replace('</body>', `${openPixel}</body>`);
+        if (!html.includes('</body>')) {
+          html += openPixel;
+        }
+
+        // 2. Rewrite Links for Click Tracking
+        html = html.replace(/href="([^"]+)"/g, (match, url) => {
+          if (url.startsWith('http') && !url.includes('/api/track/')) {
+            return `href="${backendUrl}/api/track/click/${campaign.uid}/${sub.uid}?url=${encodeURIComponent(url)}"`;
+          }
+          return match;
+        });
+
+        // 3. Inject Unsubscribe Link (replace a placeholder if it exists, otherwise append)
+        const unsubLink = `${backendUrl}/api/track/unsubscribe/${campaign.uid}/${sub.uid}`;
+        if (html.includes('[UNSUBSCRIBE]')) {
+          html = html.replace(/\[UNSUBSCRIBE\]/gi, unsubLink);
+        } else {
+          html += `<br><br><p style="font-size: 12px; color: #666; text-align: center;"><a href="${unsubLink}">Unsubscribe</a> from this list.</p>`;
+        }
+
+
+        const mailOptions = {
           from: `"${campaign.from_name}" <${campaign.from_email}>`,
           to: sub.email,
           subject: campaign.subject,
           html,
           text: campaign.plain_text_email || '',
           replyTo: campaign.reply_to || campaign.from_email,
-        });
+        };
+
+        // If bounce IMAP is configured, set the Return-Path (envelope from) to catch bounces
+        if (process.env.BOUNCE_IMAP_USER) {
+          mailOptions.envelope = {
+            from: process.env.BOUNCE_IMAP_USER,
+            to: sub.email
+          };
+        }
+
+        await transporter.sendMail(mailOptions);
         sent++;
+        
+        // Increment delivered count since sendMail succeeded
+        await pool.query(
+          `UPDATE campaigns SET delivered = COALESCE(delivered, 0) + 1 WHERE id = $1`,
+          [campaign.id]
+        );
       } catch (err) {
         console.error(`❌ Failed to send to ${sub.email}:`, err.message);
       }
