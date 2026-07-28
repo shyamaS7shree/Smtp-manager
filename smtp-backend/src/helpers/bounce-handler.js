@@ -12,6 +12,8 @@ async function processBounces() {
     return;
   }
 
+  console.log(`Connecting to IMAP with user: ${process.env.BOUNCE_IMAP_USER}, host: ${process.env.BOUNCE_IMAP_HOST}, pass length: ${process.env.BOUNCE_IMAP_PASS ? process.env.BOUNCE_IMAP_PASS.length : 0}, pass starts with: ${process.env.BOUNCE_IMAP_PASS ? process.env.BOUNCE_IMAP_PASS.substring(0, 3) : ''}`);
+
   const config = {
     imap: {
       user: process.env.BOUNCE_IMAP_USER,
@@ -104,7 +106,7 @@ async function processBounces() {
                // Find latest campaign for this list
                await pool.query(
                  `UPDATE campaigns 
-                  SET bounces = COALESCE(bounces, 0) + 1 
+                  SET bounce_count = COALESCE(bounce_count, 0) + 1 
                   WHERE list_uid = $1 
                   AND id IN (
                     SELECT id FROM campaigns WHERE list_uid = $1 ORDER BY sent_at DESC LIMIT 1

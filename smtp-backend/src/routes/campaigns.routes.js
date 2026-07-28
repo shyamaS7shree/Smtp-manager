@@ -92,7 +92,7 @@ const sendCampaignEmails = async (campaign) => {
           .replace(/\[LNAME\]/gi, sub.last_name || '')
           .replace(/\[EMAIL\]/gi, sub.email);
 
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+        const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
         
         // 1. Inject Open Tracking Pixel
         const openPixel = `<img src="${backendUrl}/api/track/open/${campaign.uid}/${sub.uid}" width="1" height="1" style="display:none;" />`;
@@ -101,9 +101,9 @@ const sendCampaignEmails = async (campaign) => {
           html += openPixel;
         }
 
-        // 2. Rewrite Links for Click Tracking
-        html = html.replace(/href="([^"]+)"/g, (match, url) => {
-          if (url.startsWith('http') && !url.includes('/api/track/')) {
+        // 2. Rewrite Links for Click Tracking (supporting single/double quotes, case-insensitively)
+        html = html.replace(/href=["']([^"']+)["']/gi, (match, url) => {
+          if (url.toLowerCase().startsWith('http') && !url.toLowerCase().includes('/api/track/')) {
             return `href="${backendUrl}/api/track/click/${campaign.uid}/${sub.uid}?url=${encodeURIComponent(url)}"`;
           }
           return match;
@@ -138,9 +138,9 @@ const sendCampaignEmails = async (campaign) => {
         await transporter.sendMail(mailOptions);
         sent++;
         
-        // Increment delivered count since sendMail succeeded
+        // Increment processed_subscribers count since sendMail succeeded
         await pool.query(
-          `UPDATE campaigns SET delivered = COALESCE(delivered, 0) + 1 WHERE id = $1`,
+          `UPDATE campaigns SET processed_subscribers = COALESCE(processed_subscribers, 0) + 1 WHERE id = $1`,
           [campaign.id]
         );
       } catch (err) {
