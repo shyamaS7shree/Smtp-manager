@@ -153,7 +153,7 @@ export default function AutoresponderCampaignsContent() {
   };
 
   const handleCreateNew = () => {
-    router.push("/campaigns/autoresponders/new");
+    router.push("/campaigns/autoresponders/new?back=/campaigns/autoresponders");
   };
 
   const handleRefresh = () => {
@@ -461,7 +461,7 @@ export default function AutoresponderCampaignsContent() {
       const userToken = session?.token || "";
 
       const res = await fetch(
-        `/api/campaigns/all-campaigns/pause-unpause-a-campaign`,
+        `/api/pause-unpause-a-campaign`,
         {
           method: "PUT",
           headers: {
@@ -1177,9 +1177,9 @@ export default function AutoresponderCampaignsContent() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    router.push(
-                                      `/campaigns/autoresponders/new?edit=${campaign.id}`,
-                                    );
+                                     router.push(
+                                       `/campaigns/autoresponders/new?edit=${campaign.id}&back=/campaigns/autoresponders`,
+                                     );
                                   }}
                                   className="w-8 h-8 bg-blue-400 hover:bg-blue-500 rounded flex items-center justify-center transition-colors"
                                   title="Edit"

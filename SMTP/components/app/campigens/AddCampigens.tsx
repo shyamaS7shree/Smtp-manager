@@ -289,7 +289,8 @@ export default function CreateCampaignPage({ defaultType }: { defaultType?: "Reg
   const isMountedRef = useRef(false);
 
   function handleCloseForm() {
-    const targetUrl = formData.type === "Autoresponder" ? "/campaigns/autoresponders" : "/campaigns/regular";
+    const backUrl = searchParams?.get("back");
+    const targetUrl = backUrl || (formData.type === "Autoresponder" ? "/campaigns/autoresponders" : "/campaigns/regular");
     if (typeof window !== "undefined") {
       setTimeout(() => {
         router.push(targetUrl);
@@ -689,7 +690,28 @@ const applySelectedTemplate = async () => {
   }, [activeFormTab, isSourceMode]);
 
   useEffect(() => {
-    if (!editId) return;
+    if (!editId) {
+      setFormData({
+        ...DEFAULT_FORM,
+        type: defaultType || "Regular",
+        fromName: userInfo?.shortName || "",
+        fromEmail: userInfo?.email || "",
+        replyTo: userInfo?.email || "",
+        toName: "[EMAIL]",
+        altText: "Hello",
+        content: buildSimpleHtml(),
+      });
+      setCampaignId("");
+      setCampaignUid("");
+      setTemplateUid("");
+      setActiveFormTab("Details");
+      setValidationErrors({});
+      setLoadingEdit(false);
+      if (editorRef.current) {
+        editorRef.current.innerHTML = buildSimpleHtml();
+      }
+      return;
+    }
 
     const loadEditCampaign = async () => {
       setLoadingEdit(true);
@@ -734,7 +756,7 @@ const applySelectedTemplate = async () => {
           setCampaignUid(String(campaign?.campaign_uid || campaign?.unique_id || campaign?.id || ""));
           setCampaignId(String(campaign?.id || ""));
           
-          const loadedListUid = campaign?.list?.list_uid ?? campaign?.list_uid ?? campaign?.list ?? prev.list;
+          const loadedListUid = campaign?.list?.list_uid ?? campaign?.list_uid ?? campaign?.list ?? formData.list;
           
           const loadedTemplateUid = campaign?.template?.template_uid ?? campaign?.template_uid ?? "";
           if (loadedTemplateUid) {
@@ -935,6 +957,21 @@ const applySelectedTemplate = async () => {
       const returnedCampaignUid = campaignRes?.data?.record?.campaign_uid || campaignRes?.data?.campaign_uid || campaignRes?.campaign_uid || "";
 
       if (returnedCampaignUid) {
+        // Automatically start the campaign sending process
+        try {
+          await fetch(`/api/mark-a-campaign-as-sent`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ token, campaign_uid: returnedCampaignUid }),
+          });
+        } catch (sendErr) {
+          console.error("Failed to trigger automatic send:", sendErr);
+        }
+
         const cached = safeParse<any[]>(localStorage.getItem("cachedCampaigns"), []);
         const alreadyExists = cached.some((c) => c.campaign_uid === returnedCampaignUid);
 

@@ -148,7 +148,7 @@ export default function CampaignsContent() {
   };
 
   const handleCreateNew = () => {
-    router.push("/campaigns/create");
+    router.push("/campaigns/create?back=/campaigns/regular");
   };
 
   const handleRefresh = () => {
@@ -445,6 +445,23 @@ export default function CampaignsContent() {
     fetchCampaigns();
   }, []);
 
+  // Smart polling: Auto-refreshes campaign list when there are sending/pending campaigns
+  useEffect(() => {
+    const hasActiveCampaign = campaigns.some(
+      (c) =>
+        c.status?.toLowerCase() === "pending-sending" ||
+        c.status?.toLowerCase() === "sending"
+    );
+
+    if (!hasActiveCampaign) return;
+
+    const intervalId = setInterval(() => {
+      fetchCampaigns();
+    }, 4000);
+
+    return () => clearInterval(intervalId);
+  }, [campaigns]);
+
   // ✅ FIXED: now passes token in body too
   const handlePauseUnpause = async (
     campaignUid: string,
@@ -455,7 +472,7 @@ export default function CampaignsContent() {
       const userToken = session?.token || "";
 
       const res = await fetch(
-        `/api/campaigns/all-campaigns/pause-unpause-a-campaign`,
+        `/api/pause-unpause-a-campaign`,
         {
           method: "PUT",
           headers: {
@@ -493,7 +510,7 @@ export default function CampaignsContent() {
       }
 
       const res = await fetch(
-        `/api/campaigns/all-campaigns/mark-a-campaign-as-sent`,
+        `/api/mark-a-campaign-as-sent`,
         {
           method: "PUT",
           headers: {
@@ -827,24 +844,7 @@ export default function CampaignsContent() {
                 className="border border-gray-300 rounded px-2 py-1 text-sm bg-white min-w-[120px]"
                 onChange={(e) => {
                   const action = e.target.value;
-                  if (action === "delete") {
-                    setConfirmAction({
-                      message: `Delete ${selectedCampaigns.length} selected campaigns?`,
-                      onConfirm: () => {
-                        const updatedCampaigns = campaigns.filter(
-                          (c) => !selectedCampaigns.includes(c.id),
-                        );
-                        setCampaigns(updatedCampaigns);
-                        localStorage.setItem(
-                          "cachedCampaigns",
-                          JSON.stringify(updatedCampaigns),
-                        );
-                        setSelectedCampaigns([]);
-                        setShowBulkActions(false);
-                        toast.success("Selected campaigns deleted successfully!");
-                      }
-                    });
-                  } else if (action === "copy") {
+                  if (action === "copy") {
                     const copiesToAdd: Campaign[] = [];
                     selectedCampaigns.forEach((id) => {
                       const campaign = campaigns.find((c) => c.id === id);
@@ -888,16 +888,6 @@ export default function CampaignsContent() {
                     }
                     setSelectedCampaigns([]);
                     setShowBulkActions(false);
-                  } else if (action === "mark-sent") {
-                    // ✅ FIXED: now actually calls markAsSent API
-                    for (const id of selectedCampaigns) {
-                      const campaign = campaigns.find((c) => c.id === id);
-                      if (campaign?.campaign_uid) {
-                        markAsSent(campaign.campaign_uid);
-                      }
-                    }
-                    setSelectedCampaigns([]);
-                    setShowBulkActions(false);
                   }
                   setSelectedCampaigns([]);
                   setShowBulkActions(false);
@@ -906,10 +896,8 @@ export default function CampaignsContent() {
                 defaultValue="choose"
               >
                 <option value="choose">Choose</option>
-                <option value="delete">Delete</option>
                 <option value="copy">Copy</option>
                 <option value="pause">Pause/Unpause</option>
-                <option value="mark-sent">Mark as sent</option>
               </select>
               <span className="text-xs text-gray-600">
                 {selectedCampaigns.length} campaign(s) selected
@@ -1378,7 +1366,7 @@ export default function CampaignsContent() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     router.push(
-                                      `/campaigns/create?edit=${campaign.id}`,
+                                      `/campaigns/create?edit=${campaign.id}&back=/campaigns/regular`,
                                     );
                                   }}
                                   className="w-8 h-8 bg-blue-400 hover:bg-blue-500 rounded flex items-center justify-center transition-colors"
