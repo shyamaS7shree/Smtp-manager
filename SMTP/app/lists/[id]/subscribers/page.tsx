@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import type React from "react";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 import { useParams, useRouter } from "next/navigation";
 import {
   ChevronLeft,
@@ -983,6 +984,7 @@ const SubscribersTable = ({
 
 // ─── Main Page Component ──────────────────────────────────────────────────────
 export default function ListSubscribersPage() {
+  const { toast } = useToast();
   const params = useParams();
   const router = useRouter();
   const listId = params?.id as string;
@@ -1426,7 +1428,7 @@ export default function ListSubscribersPage() {
           prev.filter((sub) => !selectedSubscribers.includes(sub.id)),
         );
         setSelectedSubscribers([]);
-        alert(`${selectedSubs.length} subscribers deleted`);
+        toast({ title: "Success", description: `${selectedSubs.length} subscribers deleted` });
         return;
       }
 
@@ -1464,15 +1466,16 @@ export default function ListSubscribersPage() {
           ),
         );
         setSelectedSubscribers([]);
-        alert(
-          `${selectedSubs.length} subscribers updated to ${statusMap[action]}`,
-        );
+        toast({
+          title: "Success",
+          description: `${selectedSubs.length} subscribers updated to ${statusMap[action]}`,
+        });
       } else {
-        alert("Some updates failed. Please try again.");
+        toast({ variant: "destructive", title: "Error", description: "Some updates failed. Please try again." });
       }
     } catch (err) {
       console.error("Bulk action error:", err);
-      alert("An error occurred. Please try again.");
+      toast({ variant: "destructive", title: "Error", description: "An error occurred. Please try again." });
     }
   };
 
