@@ -87,7 +87,17 @@ const sendCampaignEmails = async (campaign) => {
       }
 
       try {
-        let html = (campaign.content || '')
+        const unescapeHtml = (safe) => {
+          if (!safe) return '';
+          return safe.replace(/&amp;/g, '&')
+                     .replace(/&lt;/g, '<')
+                     .replace(/&gt;/g, '>')
+                     .replace(/&quot;/g, '"')
+                     .replace(/&#39;/g, "'")
+                     .replace(/&nbsp;/g, ' ');
+        };
+
+        let html = unescapeHtml(campaign.content)
           .replace(/\[FNAME\]/gi, sub.first_name || '')
           .replace(/\[LNAME\]/gi, sub.last_name || '')
           .replace(/\[EMAIL\]/gi, sub.email);

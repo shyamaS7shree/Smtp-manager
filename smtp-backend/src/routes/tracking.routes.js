@@ -10,7 +10,7 @@ router.get('/open/:campaignUid/:subscriberUid', async (req, res) => {
     
     // Increment opens count for campaign
     await pool.query(
-      `UPDATE campaigns SET opens = COALESCE(opens, 0) + 1 WHERE uid = $1`,
+      `UPDATE campaigns SET open_count = COALESCE(open_count, 0) + 1 WHERE uid = $1`,
       [campaignUid]
     );
 
@@ -48,8 +48,14 @@ router.get('/click/:campaignUid/:subscriberUid', async (req, res) => {
 
     // Increment click count for campaign
     await pool.query(
-      `UPDATE campaigns SET clicks = COALESCE(clicks, 0) + 1 WHERE uid = $1`,
+      `UPDATE campaigns SET click_count = COALESCE(click_count, 0) + 1 WHERE uid = $1`,
       [campaignUid]
+    );
+
+    // Increment click count for subscriber
+    await pool.query(
+      `UPDATE subscribers SET click_count = COALESCE(click_count, 0) + 1, last_click_date = NOW() WHERE uid = $1`,
+      [subscriberUid]
     );
 
     // Decode and redirect to original URL
@@ -79,7 +85,7 @@ router.get('/unsubscribe/:campaignUid/:subscriberUid', async (req, res) => {
 
     // Increment unsubs count for campaign
     await pool.query(
-      `UPDATE campaigns SET unsubs = COALESCE(unsubs, 0) + 1 WHERE uid = $1`,
+      `UPDATE campaigns SET unsubscribe_count = COALESCE(unsubscribe_count, 0) + 1 WHERE uid = $1`,
       [campaignUid]
     );
 

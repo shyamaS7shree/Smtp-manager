@@ -158,7 +158,8 @@ router.get('/get-one-subscriber', protect, async (req, res) => {
 // ── PUT /api/update-a-subscriber ──────────────────────────────
 router.put('/update-a-subscriber', protect, async (req, res) => {
   try {
-    const { list_uid, subscriber_uid } = req.query;
+    const list_uid = req.query.list_uid || req.body.list_uid;
+    const subscriber_uid = req.query.subscriber_uid || req.body.subscriber_uid;
     const { email, first_name, last_name, status } = req.body;
 
     const { rows } = await pool.query(
