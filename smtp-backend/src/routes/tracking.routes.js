@@ -8,26 +8,17 @@ router.get('/open/:campaignUid/:subscriberUid', async (req, res) => {
   try {
     const { campaignUid, subscriberUid } = req.params;
     
-    // Increment open count for subscriber
-    const { rows: subRows } = await pool.query(
-      `UPDATE subscribers SET open_count = COALESCE(open_count, 0) + 1, last_open_date = NOW() WHERE uid = $1 RETURNING open_count`,
-      [subscriberUid]
+    // Increment opens count for campaign
+    await pool.query(
+      `UPDATE campaigns SET opens = COALESCE(opens, 0) + 1 WHERE uid = $1`,
+      [campaignUid]
     );
 
-    const isUnique = subRows.length > 0 && subRows[0].open_count === 1;
-
-    // Increment open_count for campaign (and unique_open_count if first time)
-    if (isUnique) {
-      await pool.query(
-        `UPDATE campaigns SET open_count = COALESCE(open_count, 0) + 1, unique_open_count = COALESCE(unique_open_count, 0) + 1 WHERE uid = $1`,
-        [campaignUid]
-      );
-    } else {
-      await pool.query(
-        `UPDATE campaigns SET open_count = COALESCE(open_count, 0) + 1 WHERE uid = $1`,
-        [campaignUid]
-      );
-    }
+    // Increment open count for subscriber
+    await pool.query(
+      `UPDATE subscribers SET open_count = COALESCE(open_count, 0) + 1, last_open_date = NOW() WHERE uid = $1`,
+      [subscriberUid]
+    );
     
   } catch (err) {
     console.error('Error tracking open:', err.message);
@@ -55,38 +46,11 @@ router.get('/click/:campaignUid/:subscriberUid', async (req, res) => {
   try {
     if (!url) return res.status(400).send('Invalid URL');
 
-    // Increment click count for subscriber
-    const { rows: subRows } = await pool.query(
-      `UPDATE subscribers SET click_count = COALESCE(click_count, 0) + 1, last_click_date = NOW() WHERE uid = $1 RETURNING click_count, open_count`,
-      [subscriberUid]
+    // Increment click count for campaign
+    await pool.query(
+      `UPDATE campaigns SET clicks = COALESCE(clicks, 0) + 1 WHERE uid = $1`,
+      [campaignUid]
     );
-
-    const isUnique = subRows.length > 0 && subRows[0].click_count === 1;
-
-    // Increment click_count for campaign (and unique_click_count if first time)
-    if (isUnique) {
-      await pool.query(
-        `UPDATE campaigns SET click_count = COALESCE(click_count, 0) + 1, unique_click_count = COALESCE(unique_click_count, 0) + 1 WHERE uid = $1`,
-        [campaignUid]
-      );
-    } else {
-      await pool.query(
-        `UPDATE campaigns SET click_count = COALESCE(click_count, 0) + 1 WHERE uid = $1`,
-        [campaignUid]
-      );
-    }
-
-    // Auto-trigger Open event if not already opened (since they clicked a link inside it)
-    if (subRows.length > 0 && (subRows[0].open_count || 0) === 0) {
-      await pool.query(
-        `UPDATE subscribers SET open_count = 1, last_open_date = NOW() WHERE uid = $1`,
-        [subscriberUid]
-      );
-      await pool.query(
-        `UPDATE campaigns SET open_count = COALESCE(open_count, 0) + 1, unique_open_count = COALESCE(unique_open_count, 0) + 1 WHERE uid = $1`,
-        [campaignUid]
-      );
-    }
 
     // Decode and redirect to original URL
     const originalUrl = decodeURIComponent(url);
@@ -107,56 +71,17 @@ router.get('/unsubscribe/:campaignUid/:subscriberUid', async (req, res) => {
   const { campaignUid, subscriberUid } = req.params;
   
   try {
-    const { rows: subRows } = await pool.query(
-      `SELECT open_count, click_count, status FROM subscribers WHERE uid = $1`,
+    // Mark subscriber as unsubscribed
+    await pool.query(
+      `UPDATE subscribers SET status = 'unsubscribed', updated_at = NOW() WHERE uid = $1`,
       [subscriberUid]
     );
 
-    if (subRows.length > 0) {
-      const sub = subRows[0];
-
-      // 1. Auto-trigger Open event if not opened yet
-      if ((sub.open_count || 0) === 0) {
-        await pool.query(
-          `UPDATE subscribers SET open_count = 1, last_open_date = NOW() WHERE uid = $1`,
-          [subscriberUid]
-        );
-        await pool.query(
-          `UPDATE campaigns SET open_count = COALESCE(open_count, 0) + 1, unique_open_count = COALESCE(unique_open_count, 0) + 1 WHERE uid = $1`,
-          [campaignUid]
-        );
-      }
-
-      // 2. Increment click count (since unsubscribe is a link click)
-      const subClicks = sub.click_count || 0;
-      await pool.query(
-        `UPDATE subscribers SET click_count = COALESCE(click_count, 0) + 1, last_click_date = NOW() WHERE uid = $1`,
-        [subscriberUid]
-      );
-      if (subClicks === 0) {
-        await pool.query(
-          `UPDATE campaigns SET click_count = COALESCE(click_count, 0) + 1, unique_click_count = COALESCE(unique_click_count, 0) + 1 WHERE uid = $1`,
-          [campaignUid]
-        );
-      } else {
-        await pool.query(
-          `UPDATE campaigns SET click_count = COALESCE(click_count, 0) + 1 WHERE uid = $1`,
-          [campaignUid]
-        );
-      }
-
-      // 3. Mark as unsubscribed
-      if (sub.status !== 'unsubscribed') {
-        await pool.query(
-          `UPDATE subscribers SET status = 'unsubscribed', updated_at = NOW() WHERE uid = $1`,
-          [subscriberUid]
-        );
-        await pool.query(
-          `UPDATE campaigns SET unsubscribe_count = COALESCE(unsubscribe_count, 0) + 1 WHERE uid = $1`,
-          [campaignUid]
-        );
-      }
-    }
+    // Increment unsubs count for campaign
+    await pool.query(
+      `UPDATE campaigns SET unsubs = COALESCE(unsubs, 0) + 1 WHERE uid = $1`,
+      [campaignUid]
+    );
 
     res.send(`
       <html>
