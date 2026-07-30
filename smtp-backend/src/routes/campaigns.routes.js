@@ -67,6 +67,11 @@ const sendCampaignEmails = async (campaign) => {
       port: parseInt(process.env.SMTP_PORT) || 587,
       secure: process.env.SMTP_SECURE === 'true',
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      tls: {
+        rejectUnauthorized: false
+      },
+      // Force IPv4 to prevent Node.js 18+ timeout issues with Gmail
+      family: 4
     });
 
     const { rows: subscribers } = await pool.query(
