@@ -50,10 +50,11 @@ const fmt = (r) => ({
   date_added: r.created_at,
 });
 
-// ── Background email sender ────────────────────────────────────
+// ── Background email sender (via Google Apps Script) ──────────────
 const sendCampaignEmails = async (campaign) => {
-  if (!process.env.SMTP_HOST) {
-    console.warn('⚠️  SMTP not configured — emails not sent. Add SMTP_HOST to .env to enable.');
+  const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+  if (!gasUrl) {
+    console.warn('⚠️ GOOGLE_SCRIPT_URL not configured — emails not sent. Add it to .env to enable.');
     await pool.query(
       "UPDATE campaigns SET status = 'sent', sent_at = NOW() WHERE id = $1",
       [campaign.id]
@@ -62,18 +63,6 @@ const sendCampaignEmails = async (campaign) => {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-      tls: {
-        rejectUnauthorized: false
-      },
-      // Force IPv4 to prevent Node.js 18+ timeout issues with Gmail
-      family: 4
-    });
-
     const { rows: subscribers } = await pool.query(
       "SELECT * FROM subscribers WHERE list_uid = $1 AND status = 'confirmed'",
       [campaign.list_uid]
@@ -124,7 +113,7 @@ const sendCampaignEmails = async (campaign) => {
           return match;
         });
 
-        // 3. Inject Unsubscribe Link (replace a placeholder if it exists, otherwise append)
+        // 3. Inject Unsubscribe Link
         const unsubLink = `${backendUrl}/api/track/unsubscribe/${campaign.uid}/${sub.uid}`;
         if (html.includes('[UNSUBSCRIBE]')) {
           html = html.replace(/\[UNSUBSCRIBE\]/gi, unsubLink);
@@ -132,28 +121,29 @@ const sendCampaignEmails = async (campaign) => {
           html += `<br><br><p style="font-size: 12px; color: #666; text-align: center;"><a href="${unsubLink}">Unsubscribe</a> from this list.</p>`;
         }
 
+        // Send via Google Apps Script POST request
+        const response = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: sub.email,
+            subject: campaign.subject,
+            html: html,
+            text: campaign.plain_text_email || '',
+            name: campaign.from_name,
+            replyTo: campaign.reply_to || campaign.from_email
+          })
+        });
 
-        const mailOptions = {
-          from: `"${campaign.from_name}" <${campaign.from_email}>`,
-          to: sub.email,
-          subject: campaign.subject,
-          html,
-          text: campaign.plain_text_email || '',
-          replyTo: campaign.reply_to || campaign.from_email,
-        };
-
-        // If bounce IMAP is configured, set the Return-Path (envelope from) to catch bounces
-        if (process.env.BOUNCE_IMAP_USER) {
-          mailOptions.envelope = {
-            from: process.env.BOUNCE_IMAP_USER,
-            to: sub.email
-          };
+        const result = await response.json();
+        
+        if (result.status !== 'success') {
+           throw new Error(result.message || 'Unknown GAS Error');
         }
 
-        await transporter.sendMail(mailOptions);
         sent++;
         
-        // Increment delivered count since sendMail succeeded
+        // Increment delivered count
         await pool.query(
           `UPDATE campaigns SET delivered = COALESCE(delivered, 0) + 1 WHERE id = $1`,
           [campaign.id]
