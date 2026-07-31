@@ -105,6 +105,15 @@ const sendCampaignEmails = async (campaign) => {
           html += openPixel;
         }
 
+        // 1.5 Auto-link plain text URLs and Unsubscribe tags so they can be tracked/styled
+        html = html.replace(/(<a\b[^>]*>[\s\S]*?<\/a>)|(<[^>]+>)|(https?:\/\/[^\s<"']+)|(\[UNSUBSCRIBE(?:_URL)?\])/gi, (match, aTag, otherTag, url, unsubTag) => {
+          if (aTag) return aTag;
+          if (otherTag) return otherTag;
+          if (url) return `<a href="${url}">${url}</a>`;
+          if (unsubTag) return `<a href="[UNSUBSCRIBE_URL]">Unsubscribe</a>`;
+          return match;
+        });
+
         // 2. Rewrite Links for Click Tracking
         html = html.replace(/href="([^"]+)"/g, (match, url) => {
           if (url.startsWith('http') && !url.includes('/api/track/')) {
