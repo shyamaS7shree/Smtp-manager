@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, SlidersHorizontal, X, Check, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -468,7 +469,7 @@ export default function CreateCampaignPage({ defaultType }: { defaultType?: "Reg
     if (!resolvedToken) return; // token ছাড়া call করো না
 
     listsLoadingRef.current = true;
-    setPageError("");
+    
 
     const cached = safeParse<{ lists?: any[] }>(null /* disabled cache */, {});
     if (cached?.lists?.length) {
@@ -526,7 +527,7 @@ export default function CreateCampaignPage({ defaultType }: { defaultType?: "Reg
       listsLoadedRef.current = true;
     } catch (e: any) {
       if (e?.name === "AbortError") return;
-      if (isMountedRef.current) setPageError(e?.message || "Failed to load lists");
+      if (isMountedRef.current) toast.error(e?.message || "Failed to load lists");
     } finally {
       listsLoadingRef.current = false;
     }
@@ -797,10 +798,12 @@ const applySelectedTemplate = async () => {
             }
           }
         } else {
-          setPageError("Unable to load campaign for editing.");
+          toast.error("Unable to load campaign for editing.");
+          router.push("/campaigns/regular");
         }
       } catch (e: any) {
-        setPageError(e?.message || "Failed to load campaign for edit");
+        toast.error(e?.message || "Failed to load campaign for edit");
+        router.push("/campaigns/regular");
       } finally {
         setLoadingEdit(false);
       }
@@ -810,7 +813,7 @@ const applySelectedTemplate = async () => {
   }, [editId, userInfo?.token]);
 
   async function handleSaveAndNext() {
-    setPageError("");
+    
     if (!validateCurrentTab()) return;
     const idx = formTabs.indexOf(activeFormTab);
     if (idx < formTabs.length - 1) setActiveFormTab(formTabs[idx + 1]);
@@ -883,14 +886,14 @@ const applySelectedTemplate = async () => {
   async function submitCampaign() {
     if (submitInFlightRef.current) return;
     submitInFlightRef.current = true;
-    if (isMountedRef.current) setPageError("");
+    if (isMountedRef.current) 
     setSaving(true);
     setDebugBox(null);
     const token = userInfo.token || "";
 
     try {
-      if (!formData.list || formData.list === "Choose") { setPageError("Please select a list."); return; }
-      if (!(formData.content || "").trim()) { setPageError("Content is required."); setActiveFormTab("Template"); return; }
+      if (!formData.list || formData.list === "Choose") { toast.error("Please select a list."); return; }
+      if (!(formData.content || "").trim()) { toast.error("Content is required."); setActiveFormTab("Template"); return; }
 
       const templatePayload = buildTemplatePayload();
       const isUpdatingTemplate = !!templateUid;
@@ -921,7 +924,7 @@ const applySelectedTemplate = async () => {
       }
 
       const newTemplateUid = extractTemplateUid(templateRes);
-      if (!newTemplateUid) { setPageError("template_uid not returned."); setDebugBox({ error: "no uid", templateRes }); return; }
+      if (!newTemplateUid) { toast.error("template_uid not returned."); setDebugBox({ error: "no uid", templateRes }); return; }
 
       setTemplateUid(newTemplateUid);
 
@@ -1012,7 +1015,7 @@ const applySelectedTemplate = async () => {
       setShowSuccessModal(true);
       setTimeout(() => { setShowSuccessModal(false); handleCloseForm(); }, 900);
     } catch (e: any) {
-      setPageError(e?.message || "Failed to submit");
+      toast.error(e?.message || "Failed to submit");
       setDebugBox({ error: e?.message, stack: e?.stack });
     } finally {
       submitInFlightRef.current = false;
