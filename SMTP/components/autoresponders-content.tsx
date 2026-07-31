@@ -261,7 +261,7 @@ export default function AutoresponderCampaignsContent() {
 
   useEffect(() => {
     const fetchUserLists = () => {
-      const cachedLists = localStorage.getItem("cachedLists");
+      const cachedLists = null /* disabled cache */;
       if (cachedLists) {
         const parsed = JSON.parse(cachedLists);
         setAvailableLists(parsed.lists || []);
@@ -271,7 +271,7 @@ export default function AutoresponderCampaignsContent() {
   }, []);
 
   useEffect(() => {
-    const cachedAutoresponders = localStorage.getItem("cachedAutoresponders");
+    const cachedAutoresponders = null /* disabled cache */;
     if (cachedAutoresponders) {
       setCampaigns(JSON.parse(cachedAutoresponders));
     }
@@ -334,7 +334,7 @@ export default function AutoresponderCampaignsContent() {
     if (!templateUid || templateUid === "-") return "-";
     try {
       if (!templatesCacheRef.current) {
-        const cached = localStorage.getItem("cachedTemplates");
+        const cached = null /* disabled cache */;
         if (cached) templatesCacheRef.current = JSON.parse(cached);
       }
       if (!templatesCacheRef.current) {
@@ -351,7 +351,7 @@ export default function AutoresponderCampaignsContent() {
         const data = await res.json();
         const templates = data?.data?.records || data?.records || [];
         templatesCacheRef.current = templates;
-        try { localStorage.setItem("cachedTemplates", JSON.stringify(templates)); } catch {}
+        /* cache disabled */
       }
       const found = (templatesCacheRef.current || []).find(
         (t: any) => String(t.template_uid) === String(templateUid),
@@ -399,7 +399,7 @@ export default function AutoresponderCampaignsContent() {
       const records = data?.data?.records || [];
 
       if (!Array.isArray(records) || records.length === 0) {
-        const cached = localStorage.getItem("cachedAutoresponders");
+        const cached = null /* disabled cache */;
         if (cached) {
           setCampaigns(JSON.parse(cached));
         } else {
@@ -444,7 +444,7 @@ export default function AutoresponderCampaignsContent() {
       });
 
       setCampaigns(mappedCampaigns);
-      localStorage.setItem("cachedAutoresponders", JSON.stringify(mappedCampaigns));
+      // localStorage.setItem("disabled", JSON.stringify(mappedCampaigns));
     } catch (error) {
       console.error("fetchCampaigns error:", error);
     } finally {
@@ -592,7 +592,7 @@ export default function AutoresponderCampaignsContent() {
       return campaign.list;
     }
     try {
-      const raw = localStorage.getItem("cachedLists");
+      const raw = null /* disabled cache */;
       if (raw) {
         const lists = JSON.parse(raw).lists || [];
         const keys = [campaign.listId, campaign.list_uid, campaign.list].filter(Boolean);

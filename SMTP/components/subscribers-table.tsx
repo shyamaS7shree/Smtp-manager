@@ -275,7 +275,7 @@ export default function SubscribersTable() {
   const [availableLists, setAvailableLists] = useState<any[]>([]);
 
   useEffect(() => {
-    const cachedLists = localStorage.getItem("cachedLists");
+    const cachedLists = null /* disabled cache */;
     if (cachedLists) {
       const data = JSON.parse(cachedLists);
       if (data.lists) setAvailableLists(data.lists);

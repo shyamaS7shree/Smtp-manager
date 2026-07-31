@@ -79,7 +79,7 @@ export default function SurveysContent() {
 
   // Load surveys from localStorage on component mount
   useEffect(() => {
-    const savedSurveys = localStorage.getItem(STORAGE_KEY)
+    const savedSurveys = null /* disabled cache */
     if (savedSurveys) {
       try {
         setSurveys(JSON.parse(savedSurveys))
@@ -91,7 +91,7 @@ export default function SurveysContent() {
 
   // Save surveys to localStorage whenever surveys change
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(surveys))
+    // localStorage.setItem(STORAGE_KEY, JSON.stringify(surveys))
   }, [surveys])
 
   const generateId = () => Math.random().toString(36).substr(2, 9)

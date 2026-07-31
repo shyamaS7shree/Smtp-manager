@@ -1156,9 +1156,9 @@ export default function EmailListManager() {
   };
 
   const updateListsCache = (updatedLists: EmailList[]) => {
-    localStorage.setItem("cachedLists", JSON.stringify({ lists: updatedLists, timestamp: Date.now() }));
+    // localStorage.setItem("disabled", JSON.stringify({ lists: updatedLists, timestamp: Date.now() }));
     const archived = updatedLists.filter((list) => list.archived);
-    localStorage.setItem("archivedLists", JSON.stringify({ lists: archived, timestamp: Date.now() }));
+    // localStorage.setItem("disabled", JSON.stringify({ lists: archived, timestamp: Date.now() }));
   };
 
   const handleDeleteList = async (list: EmailList) => {

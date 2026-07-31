@@ -71,7 +71,7 @@ export default function SuppressionListsContent() {
 
   // Load data from localStorage on component mount
   useEffect(() => {
-    const savedData = localStorage.getItem('suppressionLists')
+    const savedData = null /* disabled cache */
     if (savedData) {
       try {
         setSuppressionLists(JSON.parse(savedData))
@@ -86,7 +86,7 @@ export default function SuppressionListsContent() {
  // Save data to localStorage whenever suppressionLists changes
 useEffect(() => {
   if (suppressionLists.length > 0) {
-    localStorage.setItem('suppressionLists', JSON.stringify(suppressionLists))
+    // localStorage.setItem("disabled", JSON.stringify(suppressionLists))
   } else {
     // Clear localStorage when no items exist
     localStorage.removeItem('suppressionLists')
@@ -95,7 +95,7 @@ useEffect(() => {
 
   const handleRefresh = () => {
     // Instead of router.refresh(), just reload data from localStorage
-    const savedData = localStorage.getItem('suppressionLists')
+    const savedData = null /* disabled cache */
     if (savedData) {
       try {
         setSuppressionLists(JSON.parse(savedData))

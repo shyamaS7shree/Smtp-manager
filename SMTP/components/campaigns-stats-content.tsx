@@ -45,8 +45,8 @@ export default function CampaignsStatsContent() {
     if (!isManualRefresh) {
       // ⚡ Fast Initial Load from Local Cache on page mount
       try {
-        const cached = localStorage.getItem("cachedCampaigns");
-        const cachedAr = localStorage.getItem("cachedAutoresponders");
+        const cached = null /* disabled cache */;
+        const cachedAr = null /* disabled cache */;
         const list1 = cached ? JSON.parse(cached) : [];
         const list2 = cachedAr ? JSON.parse(cachedAr) : [];
         const combined = deduplicateCampaigns([...list1, ...list2]);
@@ -90,8 +90,8 @@ export default function CampaignsStatsContent() {
       }
 
       if (fetchedCampaigns.length === 0) {
-        const cached = localStorage.getItem("cachedCampaigns");
-        const cachedAr = localStorage.getItem("cachedAutoresponders");
+        const cached = null /* disabled cache */;
+        const cachedAr = null /* disabled cache */;
         const list1 = cached ? JSON.parse(cached) : [];
         const list2 = cachedAr ? JSON.parse(cachedAr) : [];
         fetchedCampaigns = [...list1, ...list2];

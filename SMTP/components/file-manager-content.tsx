@@ -52,7 +52,7 @@ export default function FileManagerContent() {
   const fetchFiles = async () => {
     // ⚡ Instant 0ms Load from Local Cache
     try {
-      const cached = localStorage.getItem("cachedFileManagerFiles");
+      const cached = null /* disabled cache */;
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -75,7 +75,7 @@ export default function FileManagerContent() {
         const json = await res.json();
         const records = Array.isArray(json?.data) ? json.data : [];
         setFiles(records);
-        localStorage.setItem("cachedFileManagerFiles", JSON.stringify(records));
+        // localStorage.setItem("disabled", JSON.stringify(records));
       }
     } catch (e) {
       console.error("Failed to fetch files:", e);

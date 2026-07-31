@@ -470,7 +470,7 @@ export default function CreateCampaignPage({ defaultType }: { defaultType?: "Reg
     listsLoadingRef.current = true;
     setPageError("");
 
-    const cached = safeParse<{ lists?: any[] }>(localStorage.getItem("cachedLists"), {});
+    const cached = safeParse<{ lists?: any[] }>(null /* disabled cache */, {});
     if (cached?.lists?.length) {
       const normalized = cached.lists.map((item: any) => normalizeListItem(item)).filter((x): x is ListType => !!x);
       if (normalized.length && isMountedRef.current) setAvailableLists(normalized);
@@ -522,7 +522,7 @@ export default function CreateCampaignPage({ defaultType }: { defaultType?: "Reg
 
       if (!isMountedRef.current) return;
       setAvailableLists(all);
-      localStorage.setItem("cachedLists", JSON.stringify({ lists: all }));
+      // localStorage.setItem("disabled", JSON.stringify({ lists: all }));
       listsLoadedRef.current = true;
     } catch (e: any) {
       if (e?.name === "AbortError") return;
@@ -736,7 +736,7 @@ const applySelectedTemplate = async () => {
 
         // Fallback to cache if API failed
         if (!campaign) {
-          const cachedCampaigns = safeParse<any[]>(localStorage.getItem("cachedCampaigns"), []);
+          const cachedCampaigns = safeParse<any[]>(null /* disabled cache */, []);
           campaign = cachedCampaigns.find((x) => x?.id === editId || x?.campaign_uid === String(editId) || x?.uniqueId === String(editId));
         }
 
@@ -972,7 +972,7 @@ const applySelectedTemplate = async () => {
           console.error("Failed to trigger automatic send:", sendErr);
         }
 
-        const cached = safeParse<any[]>(localStorage.getItem("cachedCampaigns"), []);
+        const cached = safeParse<any[]>(null /* disabled cache */, []);
         const alreadyExists = cached.some((c) => c.campaign_uid === returnedCampaignUid);
 
         if (!alreadyExists) {
@@ -990,10 +990,10 @@ const applySelectedTemplate = async () => {
           });
         } else {
           const updated = cached.map((c) => c.campaign_uid === returnedCampaignUid ? { ...c, campaign_uid: returnedCampaignUid, list_uid: formData.list, list: formData.list } : c);
-          localStorage.setItem("cachedCampaigns", JSON.stringify(updated));
+          // localStorage.setItem("disabled", JSON.stringify(updated));
         }
 
-        localStorage.setItem("cachedCampaigns", JSON.stringify(cached));
+        // localStorage.setItem("disabled", JSON.stringify(cached));
         setCampaignId(returnedCampaignUid);
         setCampaignUid(returnedCampaignUid);
 

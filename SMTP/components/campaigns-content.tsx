@@ -261,7 +261,7 @@ export default function CampaignsContent() {
 
   useEffect(() => {
     const fetchUserLists = () => {
-      const cachedLists = localStorage.getItem("cachedLists");
+      const cachedLists = null /* disabled cache */;
       if (cachedLists) {
         const parsed = JSON.parse(cachedLists);
         setAvailableLists(parsed.lists || []);
@@ -271,7 +271,7 @@ export default function CampaignsContent() {
   }, []);
 
   useEffect(() => {
-    const cachedCampaigns = localStorage.getItem("cachedCampaigns");
+    const cachedCampaigns = null /* disabled cache */;
     if (cachedCampaigns) {
       setCampaigns(JSON.parse(cachedCampaigns));
     }
@@ -334,7 +334,7 @@ export default function CampaignsContent() {
     if (!templateUid || templateUid === "-") return "-";
     try {
       if (!templatesCacheRef.current) {
-        const cached = localStorage.getItem("cachedTemplates");
+        const cached = null /* disabled cache */;
         if (cached) templatesCacheRef.current = JSON.parse(cached);
       }
       if (!templatesCacheRef.current) {
@@ -351,7 +351,7 @@ export default function CampaignsContent() {
         const data = await res.json();
         const templates = data?.data?.records || data?.records || [];
         templatesCacheRef.current = templates;
-        try { localStorage.setItem("cachedTemplates", JSON.stringify(templates)); } catch {}
+        /* cache disabled */
       }
       const found = (templatesCacheRef.current || []).find(
         (t: any) => String(t.template_uid) === String(templateUid),
@@ -399,8 +399,8 @@ export default function CampaignsContent() {
       const records = data?.data?.records || [];
 
       if (!Array.isArray(records) || records.length === 0) {
-        const cached = localStorage.getItem("cachedCampaigns");
-        const cachedAr = localStorage.getItem("cachedAutoresponders");
+        const cached = null /* disabled cache */;
+        const cachedAr = null /* disabled cache */;
         const combined = [
           ...(cached ? JSON.parse(cached) : []),
           ...(cachedAr ? JSON.parse(cachedAr) : []),
@@ -451,7 +451,7 @@ export default function CampaignsContent() {
       });
 
       setCampaigns(mappedCampaigns);
-      localStorage.setItem("cachedCampaigns", JSON.stringify(mappedCampaigns));
+      // localStorage.setItem("disabled", JSON.stringify(mappedCampaigns));
     } catch (error) {
       console.error("fetchCampaigns error:", error);
     } finally {
@@ -640,7 +640,7 @@ export default function CampaignsContent() {
 
   const resolveCampaignListName = (campaign: Campaign) => {
     try {
-      const raw = localStorage.getItem("cachedLists");
+      const raw = null /* disabled cache */;
       if (!raw) return campaign.list || "-";
 
       const lists = JSON.parse(raw).lists || [];
@@ -739,7 +739,7 @@ export default function CampaignsContent() {
             });
 
             setCampaigns(updatedCampaigns);
-            localStorage.setItem("cachedCampaigns", JSON.stringify(updatedCampaigns));
+            // localStorage.setItem("disabled", JSON.stringify(updatedCampaigns));
             
             toast.success(`Successfully moved ${wellPerformingCampaigns.length} campaigns to regular category!`);
             
