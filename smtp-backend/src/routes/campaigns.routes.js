@@ -115,8 +115,9 @@ const sendCampaignEmails = async (campaign) => {
 
         // 3. Inject Unsubscribe Link
         const unsubLink = `${backendUrl}/api/track/unsubscribe/${campaign.uid}/${sub.uid}`;
-        if (html.includes('[UNSUBSCRIBE]')) {
+        if (html.includes('[UNSUBSCRIBE]') || html.includes('[UNSUBSCRIBE_URL]')) {
           html = html.replace(/\[UNSUBSCRIBE\]/gi, unsubLink);
+          html = html.replace(/\[UNSUBSCRIBE_URL\]/gi, unsubLink);
         } else {
           html += `<br><br><p style="font-size: 12px; color: #666; text-align: center;"><a href="${unsubLink}">Unsubscribe</a> from this list.</p>`;
         }

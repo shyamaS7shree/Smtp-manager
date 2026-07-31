@@ -104,7 +104,7 @@ async function processBounces() {
                // Find latest campaign for this list
                await pool.query(
                  `UPDATE campaigns 
-                  SET bounces = COALESCE(bounces, 0) + 1 
+                  SET bounce_count = COALESCE(bounce_count, 0) + 1 
                   WHERE list_uid = $1 
                   AND id IN (
                     SELECT id FROM campaigns WHERE list_uid = $1 ORDER BY sent_at DESC LIMIT 1
