@@ -397,6 +397,17 @@ export default function AddEmailTemplateComponent() {
                       >
                         <Pilcrow size={15} />
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = prompt("Enter link URL:");
+                          if (url) exec("createLink", url);
+                        }}
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 text-xs flex items-center gap-0.5 font-semibold"
+                        title="Add Link"
+                      >
+                        <span className="font-bold underline text-[10px]">Link</span>
+                      </button>
                       <div className="w-px h-4 bg-slate-300 mx-1" />
                       <button
                         type="button"
