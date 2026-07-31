@@ -809,7 +809,9 @@ const applySelectedTemplate = async () => {
       }
     };
 
-    loadEditCampaign();
+    if (userInfo?.token) {
+      loadEditCampaign();
+    }
   }, [editId, userInfo?.token]);
 
   async function handleSaveAndNext() {
