@@ -104,9 +104,6 @@ export default function EditEmailTemplateComponent() {
   const validate = useCallback(() => {
     if (!template_uid) return "Template UID missing in route.";
     if (!name.trim()) return "Template name is required.";
-    if (!content.includes("[UNSUBSCRIBE_URL]")) {
-      return "Template must include [UNSUBSCRIBE_URL]. Click '[UNSUBSCRIBE_URL]' in Quick Tags to add it.";
-    }
     return null;
   }, [template_uid, name, content]);
 

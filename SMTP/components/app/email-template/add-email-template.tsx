@@ -100,9 +100,6 @@ export default function AddEmailTemplateComponent() {
 
   const validate = useCallback(() => {
     if (!name.trim()) return "Template name is required.";
-    if (!content.includes("[UNSUBSCRIBE_URL]")) {
-      return "Template must include [UNSUBSCRIBE_URL]. Click '[UNSUBSCRIBE_URL]' in Quick Tags to add it.";
-    }
     return null;
   }, [name, content]);
 
