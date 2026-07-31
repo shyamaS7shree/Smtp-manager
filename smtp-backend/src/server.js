@@ -83,7 +83,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ SMTP Backend running → http://localhost:${PORT}`);
+  console.log(`✅ SMTP Backend running on port ${PORT}`);
   
   // Start the background worker for parsing free bounces
   startBounceProcessor();

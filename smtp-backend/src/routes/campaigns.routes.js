@@ -84,11 +84,11 @@ const sendCampaignEmails = async (campaign) => {
         const unescapeHtml = (safe) => {
           if (!safe) return '';
           return safe.replace(/&amp;/g, '&')
-                     .replace(/&lt;/g, '<')
-                     .replace(/&gt;/g, '>')
-                     .replace(/&quot;/g, '"')
-                     .replace(/&#39;/g, "'")
-                     .replace(/&nbsp;/g, ' ');
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ');
         };
 
         let html = unescapeHtml(campaign.content)
@@ -96,8 +96,8 @@ const sendCampaignEmails = async (campaign) => {
           .replace(/\[LNAME\]/gi, sub.last_name || '')
           .replace(/\[EMAIL\]/gi, sub.email);
 
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-        
+        const backendUrl = process.env.BACKEND_URL || 'https://smtp-backend-api.onrender.com';
+
         // 1. Inject Open Tracking Pixel
         const openPixel = `<img src="${backendUrl}/api/track/open/${campaign.uid}/${sub.uid}" width="1" height="1" style="display:none;" />`;
         html = html.replace('</body>', `${openPixel}</body>`);
@@ -137,13 +137,13 @@ const sendCampaignEmails = async (campaign) => {
         });
 
         const result = await response.json();
-        
+
         if (result.status !== 'success') {
-           throw new Error(result.message || 'Unknown GAS Error');
+          throw new Error(result.message || 'Unknown GAS Error');
         }
 
         sent++;
-        
+
         // Increment delivered count
         await pool.query(
           `UPDATE campaigns SET delivered = COALESCE(delivered, 0) + 1 WHERE id = $1`,
