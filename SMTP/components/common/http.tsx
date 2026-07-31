@@ -12,22 +12,22 @@ interface UserSession {
 
 
 // 🔄 Custom backend URL — replace MailWizz dependency
-export const apiUrl = (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000") + "/api"
-export const token=()=>{
-    if (typeof window === 'undefined') return '' 
-    const storedSession = localStorage.getItem("userSession")
-    if (!storedSession) return ''
-    try {
-        const session: UserSession = JSON.parse(storedSession)
-        return session.token
-    } catch {
-        return ''
-    }
+export const apiUrl = (process.env.NEXT_PUBLIC_BACKEND_URL || "https://smtp-backend-api.onrender.com") + "/api"
+export const token = () => {
+  if (typeof window === 'undefined') return ''
+  const storedSession = localStorage.getItem("userSession")
+  if (!storedSession) return ''
+  try {
+    const session: UserSession = JSON.parse(storedSession)
+    return session.token
+  } catch {
+    return ''
+  }
 }
 
 export const axiosInstance = axios.create({
-    baseURL:apiUrl,
-    headers: {
+  baseURL: apiUrl,
+  headers: {
     'Content-Type': 'application/json',
   }
 })
