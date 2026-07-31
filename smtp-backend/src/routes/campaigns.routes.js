@@ -153,11 +153,8 @@ const sendCampaignEmails = async (campaign) => {
 
         sent++;
 
-        // Increment delivered count
-        await pool.query(
-          `UPDATE campaigns SET delivered = COALESCE(delivered, 0) + 1 WHERE id = $1`,
-          [campaign.id]
-        );
+        // Log individual success (removed broken 'delivered' column query)
+        console.log(`✅ Successfully sent to ${sub.email}`);
       } catch (err) {
         console.error(`❌ Failed to send to ${sub.email}:`, err.message);
       }
