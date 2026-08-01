@@ -1,67 +1,62 @@
-import { TrendingUp, TrendingDown, List, Mail, Users, FileText } from "lucide-react"
+"use client";
+
+import { Mail, List, Users, FileText } from "lucide-react"
 
 interface MetricCardProps {
   icon: string
   title: string
   value: number
-  percentage: string
-  description: string
-  trend: "up" | "down"
+  subtitle: string
+  delay?: number
 }
 
-export default function MetricCard({ icon, title, value, percentage, description, trend }: MetricCardProps) {
-  const getIcon = () => {
+export default function MetricCard({ icon, title, value, subtitle, delay = 0 }: MetricCardProps) {
+  const getConfig = () => {
     switch (icon) {
       case "Campaigns":
-        return <Mail className="h-5 w-5 text-muted-foreground" />
+        return { icon: <Mail className="h-5 w-5 text-orange-500" />, bg: "bg-orange-100", stroke: "#f97316" }
       case "List":
-        return <List className="h-5 w-5 text-muted-foreground" />
+        return { icon: <List className="h-5 w-5 text-fuchsia-500" />, bg: "bg-fuchsia-100", stroke: "#d946ef" }
       case "Subscribers":
-        return <Users className="h-5 w-5 text-muted-foreground" />
+        return { icon: <Users className="h-5 w-5 text-green-500" />, bg: "bg-green-100", stroke: "#22c55e" }
       case "Templates":
-        return <FileText className="h-5 w-5 text-muted-foreground" />
+        return { icon: <FileText className="h-5 w-5 text-blue-500" />, bg: "bg-blue-100", stroke: "#3b82f6" }
       default:
-        return <Mail className="h-5 w-5 text-muted-foreground" />
+        return { icon: <Mail className="h-5 w-5 text-gray-500" />, bg: "bg-gray-100", stroke: "#6b7280" }
     }
   }
+  
+  const config = getConfig()
 
   return (
-    <div className="rounded-md border border-border bg-card p-4 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        {getIcon()}
-        <div className="relative h-10 w-20">
-          <svg
-            className="h-full w-full"
-            viewBox="0 0 100 40"
-            preserveAspectRatio="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d={
-                trend === "up"
-                  ? "M0,40 L10,35 L20,38 L30,32 L40,28 L50,25 L60,20 L70,15 L80,10 L90,5 L100,0"
-                  : "M0,0 L10,5 L20,8 L30,12 L40,18 L50,25 L60,30 L70,35 L80,38 L90,36 L100,40"
-              }
-              fill="none"
-              stroke={trend === "up" ? "#22c55e" : "#ef4444"}
-              strokeWidth="2"
-            />
-          </svg>
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+      <div className="flex items-start gap-4">
+        <div className={`p-3 rounded-xl ${config.bg}`}>
+          {config.icon}
+        </div>
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-gray-900">{title}</span>
+          <span className="text-3xl font-extrabold text-gray-900 mt-1">{value}</span>
         </div>
       </div>
-      <div className="mb-1 text-2xl font-bold text-foreground">{value}</div>
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">{title}</span>
-        <div
-          className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs ${
-            trend === "up" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-          }`}
-        >
-          {trend === "up" ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-          {percentage}
+      
+      <div className="flex items-end justify-between mt-4">
+        <span className="text-[11px] font-semibold text-gray-400">{subtitle}</span>
+        
+        {/* Little sparkline graph */}
+        <div className="w-16 h-8">
+           <svg viewBox="0 0 100 40" className="w-full h-full" preserveAspectRatio="none">
+             <path 
+               d="M0,35 Q10,30 20,32 T40,25 T60,20 T80,10 L100,5" 
+               fill="none" 
+               stroke={config.stroke} 
+               strokeWidth="3" 
+               strokeLinecap="round" 
+               strokeLinejoin="round" 
+             />
+           </svg>
         </div>
       </div>
-      <div className="text-xs text-muted-foreground">{description}</div>
     </div>
   )
 }
