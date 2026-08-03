@@ -19,6 +19,8 @@ const suppressionRoutes = require('./routes/suppression-list.routes');
 const ipBlacklistRoutes = require('./routes/ip-blacklist.routes');
 const filesRoutes = require('./routes/files.routes');
 const trackingRoutes = require('./routes/tracking.routes');
+const deliveryServersRoutes = require('./routes/delivery-servers.routes');
+const bounceServersRoutes = require('./routes/bounce-servers.routes');
 const { startBounceProcessor } = require('./helpers/bounce-handler');
 
 const app = express();
@@ -63,6 +65,8 @@ app.use('/api', suppressionRoutes);
 app.use('/api', ipBlacklistRoutes);
 app.use('/api', filesRoutes);
 app.use('/api/track', trackingRoutes);
+app.use('/api', deliveryServersRoutes);
+app.use('/api', bounceServersRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────
 app.use((req, res) => {
