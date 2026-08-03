@@ -20,6 +20,8 @@ import {
   Network,
   Globe,
   Settings,
+  Server,
+  BarChart2,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { usePathname } from "next/navigation"
@@ -45,6 +47,7 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
     Lists: false,
     Campaigns: false,
     "Email templates": false,
+    Servers: false,
     "Landing pages": false,
     Surveys: false,
   })
@@ -128,6 +131,19 @@ export function SidebarNav({ isMobile = false, onClose }: SidebarNavProps) {
       subItems: [
         { label: "Templates", href: "/email-templates/templates" },
         { label: "File manager", href: "/email-templates/file-manager" },
+      ],
+    },
+    {
+      icon: <BarChart2 className="h-5 w-5" />,
+      label: "Reports",
+      href: "/reports",
+    },
+    {
+      icon: <Server className="h-5 w-5" />,
+      label: "Servers",
+      subItems: [
+        { label: "Delivery servers", href: "/servers/delivery-servers" },
+        { label: "Bounce servers", href: "/servers/bounce-servers" },
       ],
     },
     /*{
