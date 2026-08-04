@@ -276,8 +276,8 @@ const SubscriberActivityChart = ({
         </div>
       )}
 
-      <div className="mt-4 flex justify-end">
-        <div className="flex items-center space-x-4 text-sm">
+      <div className="mt-4 flex justify-center sm:justify-end">
+        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 sm:gap-4 text-xs sm:text-sm">
           {[
             { color: "bg-blue-500", label: "Confirmed" },
             { color: "bg-yellow-500", label: "Unconfirmed" },
@@ -487,7 +487,7 @@ export default function ListDetailPage() {
         <SidebarNav />
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">
             <div className="mx-auto max-w-7xl">

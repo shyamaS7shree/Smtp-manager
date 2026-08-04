@@ -433,7 +433,7 @@ const fetchSegmentForEdit = async () => {
     return (
       <div className="flex h-screen bg-background">
         <div className="hidden lg:block"><SidebarNav /></div>
-        <div className="wraper w-full">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Header />
           <div className="flex-1 overflow-y-auto p-6">
             <div className="mx-auto max-w-4xl animate-pulse">
@@ -449,7 +449,7 @@ const fetchSegmentForEdit = async () => {
   return (
     <div className="flex h-screen bg-background">
       <div className="hidden lg:block"><SidebarNav /></div>
-      <div className="wraper w-full">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">

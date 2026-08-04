@@ -18,6 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
@@ -29,6 +31,8 @@ export default function DeliveryServersContent() {
   const [servers, setServers] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingServerId, setEditingServerId] = useState<number | null>(null)
+  const [serverToDelete, setServerToDelete] = useState<any>(null)
   const [formData, setFormData] = useState({
     name: '', type: 'SMTP', hostname: '', username: '', password: '', port: 587, hourly_quota: 10000, status: 'active'
   })
@@ -56,13 +60,20 @@ export default function DeliveryServersContent() {
     }
   }
 
-  const handleCreateServer = async (e: React.FormEvent) => {
+  const handleSaveServer = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       const session = JSON.parse(localStorage.getItem('userSession') || '{}')
       const token = session.token
-      const res = await fetch(`${BACKEND_URL}/api/delivery-servers`, {
-        method: 'POST',
+      
+      const url = editingServerId 
+        ? `${BACKEND_URL}/api/delivery-servers/${editingServerId}` 
+        : `${BACKEND_URL}/api/delivery-servers`
+        
+      const method = editingServerId ? 'PUT' : 'POST'
+
+      const res = await fetch(url, {
+        method,
         headers: { 
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}` 
@@ -71,31 +82,49 @@ export default function DeliveryServersContent() {
       })
       const data = await res.json()
       if (data.status === 'success') {
-        toast.success("Delivery server added!")
+        toast.success(editingServerId ? "Server updated!" : "Delivery server added!")
         setIsDialogOpen(false)
         fetchServers()
       } else {
-        toast.error(data.message || "Failed to add server")
+        toast.error(data.message || "Failed to save server")
       }
     } catch (error) {
       console.error(error)
-      toast.error("Error creating server")
+      toast.error("Error saving server")
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this server?")) return
+  const handleEditClick = (server: any) => {
+    setEditingServerId(server.id)
+    setFormData({
+      name: server.name || '',
+      type: server.type || 'SMTP',
+      hostname: server.hostname || '',
+      username: server.username || '',
+      password: server.password || '', // Backend probably doesn't return password, so they might have to re-enter or it's ignored if empty
+      port: server.port || 587,
+      hourly_quota: server.hourly_quota || 10000,
+      status: server.status || 'active'
+    })
+    setIsDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!serverToDelete) return
     try {
       const session = JSON.parse(localStorage.getItem('userSession') || '{}')
       const token = session.token
-      const res = await fetch(`${BACKEND_URL}/api/delivery-servers/${id}`, {
+      const res = await fetch(`${BACKEND_URL}/api/delivery-servers/${serverToDelete.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
       if (data.status === 'success') {
         toast.success("Server deleted")
+        setServerToDelete(null)
         fetchServers()
+      } else {
+        toast.error(data.message || "Failed to delete server")
       }
     } catch (error) {
       toast.error("Error deleting server")
@@ -122,16 +151,22 @@ export default function DeliveryServersContent() {
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm flex items-center gap-2">
+            <Button 
+              onClick={() => {
+                setEditingServerId(null);
+                setFormData({ name: '', type: 'SMTP', hostname: '', username: '', password: '', port: 587, hourly_quota: 10000, status: 'active' });
+              }}
+              className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm flex items-center gap-2"
+            >
               <PlusCircle className="h-4 w-4" />
               Create new server
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Add Delivery Server</DialogTitle>
+              <DialogTitle>{editingServerId ? 'Edit Delivery Server' : 'Add Delivery Server'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreateServer} className="space-y-4 pt-4">
+            <form onSubmit={handleSaveServer} className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Name</Label>
@@ -236,24 +271,55 @@ export default function DeliveryServersContent() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreVertical className="h-4 w-4 text-slate-500" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[160px]">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem className="cursor-pointer text-slate-700">
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleDelete(server.id)} className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50">
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="relative inline-block text-left">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const actionRow = document.getElementById(
+                              `action-row-${server.id}`,
+                            );
+                            if (actionRow) actionRow.classList.toggle("hidden");
+                          }}
+                          className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center transition-colors ml-auto"
+                          title="Options"
+                        >
+                          <span className="text-sm">⚙️</span>
+                        </button>
+
+                        <div
+                          id={`action-row-${server.id}`}
+                          className="absolute right-full top-1/2 transform -translate-y-1/2 mr-2 z-50 hidden"
+                        >
+                          <div className="flex items-center space-x-1 bg-white border border-gray-200 rounded-lg p-1 shadow-lg">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditClick(server);
+                                document
+                                  .getElementById(`action-row-${server.id}`)
+                                  ?.classList.add("hidden");
+                              }}
+                              className="w-7 h-7 bg-blue-500 hover:bg-blue-600 rounded flex items-center justify-center transition-colors"
+                              title="Edit"
+                            >
+                              <span className="text-white text-xs">✏️</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setServerToDelete(server);
+                                document
+                                  .getElementById(`action-row-${server.id}`)
+                                  ?.classList.add("hidden");
+                              }}
+                              className="w-7 h-7 bg-red-500 hover:bg-red-600 rounded flex items-center justify-center transition-colors"
+                              title="Delete"
+                            >
+                              <span className="text-white text-xs">🗑️</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -270,6 +336,21 @@ export default function DeliveryServersContent() {
           </table>
         </div>
       </div>
+
+      <Dialog open={!!serverToDelete} onOpenChange={(open) => !open && setServerToDelete(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete Server</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the server <strong className="text-slate-900">{serverToDelete?.name}</strong>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setServerToDelete(null)}>Cancel</Button>
+            <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

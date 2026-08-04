@@ -190,17 +190,16 @@ export default function ArchivedListsTable() {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button 
-          className="bg-blue-500 text-white hover:bg-blue-600 px-3 py-2 rounded-md flex items-center gap-2 font-medium transition-colors text-sm"
+        <Link 
+          href="/lists"
+          className="bg-blue-500 text-white hover:bg-blue-600 h-9 px-4 min-w-[100px] rounded-md flex items-center justify-center gap-2 font-medium transition-colors text-sm"
         >
-          <Link href="/lists" className="flex items-center gap-2">
-            All lists
-          </Link>
-        </button>
+          All lists
+        </Link>
 
         <button 
           onClick={handleRefresh}
-          className="bg-blue-500 text-white hover:bg-blue-600 px-3 py-2 rounded-md flex items-center gap-2 font-medium transition-colors text-sm"
+          className="bg-blue-500 text-white hover:bg-blue-600 h-9 px-4 min-w-[100px] rounded-md flex items-center justify-center gap-2 font-medium transition-colors text-sm"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh

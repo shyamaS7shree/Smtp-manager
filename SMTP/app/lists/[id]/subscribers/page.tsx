@@ -726,7 +726,8 @@ const SubscribersTable = ({
 
   return (
     <>
-      <div className="rounded-lg border border-gray-200">
+      <div className="rounded-lg border border-gray-200 overflow-x-auto">
+        <div className="min-w-[800px]">
         {/* ─── Search Bar Row ─────────────────────────────────────────── */}
         <div className="border-b border-gray-200 p-3">
           <div className="flex gap-3 items-center">
@@ -962,6 +963,7 @@ const SubscribersTable = ({
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <EditSubscriberModal
@@ -1645,7 +1647,7 @@ export default function ListSubscribersPage() {
       <div className="hidden lg:block">
         <SidebarNav />
       </div>
-      <div className="wraper w-full">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
         <main className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
@@ -1663,14 +1665,14 @@ export default function ListSubscribersPage() {
                   </div>
                 </div>
 
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <Users className="h-6 w-6 dark:text-gray-200 text-gray-700" />
                     <h1 className="text-2xl font-semibold dark:text-gray-100 text-gray-900">
                       List subscribers
                     </h1>
                   </div>
-                  <div className="flex gap-2 relative">
+                  <div className="flex flex-wrap gap-2 relative">
                     {subscribers.length > 0 && (
                       <>
                         <div className="dropdown-container relative">
