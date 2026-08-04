@@ -329,7 +329,7 @@ export default function ListSegmentsPage() {
   return (
     <div className="flex h-screen bg-background">
       <div className="hidden lg:block"><SidebarNav /></div>
-      <div className="wraper w-full flex-1">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">

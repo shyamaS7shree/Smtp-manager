@@ -7,8 +7,10 @@ import Header from "@/components/common/header"
 export default function ArchivedListsPage() {
   return (
     <div className="flex h-screen bg-background">
-      <SidebarNav />
-      <div className="flex-1 overflow-auto">
+      <div className="hidden lg:block">
+        <SidebarNav />
+      </div>
+      <div className="flex-1 flex flex-col overflow-auto">
         {/* <header className="flex items-center justify-between border-b bg-card px-6 py-4">
           <div className="relative w-64">
             <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

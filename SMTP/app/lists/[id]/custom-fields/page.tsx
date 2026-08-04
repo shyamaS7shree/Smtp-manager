@@ -424,7 +424,9 @@ export default function CustomFieldsPage() {
       <div className="flex h-screen bg-background relative">
 
         {/* Desktop Sidebar */}
-        {!isMobile && <SidebarNav />}
+        <div className="hidden lg:block">
+          <SidebarNav />
+        </div>
 
         {/* Delete Confirmation Modal */}
         {deleteConfirmOpen && (
@@ -536,7 +538,7 @@ export default function CustomFieldsPage() {
           {/* Header */}
           <div className="border-b px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {isMobile && (
+              <div className="block lg:hidden">
                 <Sheet>
                   <SheetTrigger asChild>
                     <Menu className="h-5 w-5 text-gray-600 dark:text-gray-300 cursor-pointer" />
@@ -545,7 +547,7 @@ export default function CustomFieldsPage() {
                     <SidebarNav isMobile={true} />
                   </SheetContent>
                 </Sheet>
-              )}
+              </div>
 
               <Button
                 variant="ghost"
@@ -557,7 +559,7 @@ export default function CustomFieldsPage() {
                 <span className="text-sm">Back to List</span>
               </Button>
 
-              {!isMobile && <div className="w-px h-4 bg-gray-300" />}
+              <div className="hidden lg:block w-px h-4 bg-gray-300" />
               <span className="text-sm font-medium dark:text-gray-100 text-gray-900">
                 {loading
                   ? "Loading..."
