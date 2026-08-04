@@ -167,7 +167,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-center hover:shadow-md transition-shadow">
                <div className="flex items-center gap-3 mb-2">
                  <div className="p-2 bg-orange-50 rounded-xl"><Send className="w-5 h-5 text-orange-500" /></div>
@@ -203,9 +203,6 @@ export default function Dashboard() {
                <p className="text-[11px] font-bold text-gray-700">Bounces</p>
                <div className="w-4 h-0.5 bg-gray-200 my-1.5"></div>
                <p className="text-[10px] font-semibold text-gray-400">vs last 7 days</p>
-            </div>
-            <div className="sm:col-span-2 lg:col-span-1 h-full">
-               <DeliverabilityCard rate={deliveryStats.sent > 0 ? ((deliveryStats.sent - deliveryStats.bounces) / deliveryStats.sent * 100).toFixed(1) : "0"} />
             </div>
           </div>
         </main>

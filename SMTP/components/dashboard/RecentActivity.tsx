@@ -2,6 +2,7 @@
 
 import { Users, Mail, FileText, ShieldAlert, List, Zap, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
 
 export default function RecentActivity({ activities = [] }: { activities: any[] }) {
   const getIconAndStyle = (type: string) => {
@@ -20,9 +21,9 @@ export default function RecentActivity({ activities = [] }: { activities: any[] 
           <Zap className="w-5 h-5 text-orange-500 fill-orange-500" />
           <h2 className="text-lg font-bold text-gray-900 tracking-tight">Recent Activity</h2>
         </div>
-        <button className="text-xs font-bold text-orange-500 border border-orange-100 px-4 py-1.5 rounded-full hover:bg-orange-50 transition-colors">
+        <Link href="/campaigns" className="text-xs font-bold text-orange-500 border border-orange-100 px-4 py-1.5 rounded-full hover:bg-orange-50 transition-colors">
           View All
-        </button>
+        </Link>
       </div>
 
       <div className="flex-1 flex flex-col gap-5">
