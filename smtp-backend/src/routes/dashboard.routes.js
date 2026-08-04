@@ -40,7 +40,7 @@ router.get('/dashboard/stats', protect, async (req, res) => {
         SELECT 
           SUM(COALESCE(open_count, 0)) as total_opens, 
           SUM(COALESCE(click_count, 0)) as total_clicks,
-          SUM(COALESCE(unsubscribe_count, 0)) as total_bounces,
+          SUM(COALESCE(bounce_count, 0)) as total_bounces,
           COUNT(uid) as total_sent
         FROM campaigns WHERE user_id = $1${dateFilter}
       `, params),
@@ -50,7 +50,7 @@ router.get('/dashboard/stats', protect, async (req, res) => {
           COUNT(uid) as sent,
           SUM(COALESCE(open_count, 0)) as opens,
           SUM(COALESCE(click_count, 0)) as clicks,
-          SUM(COALESCE(unsubscribe_count, 0)) as bounces
+          SUM(COALESCE(bounce_count, 0)) as bounces
         FROM campaigns 
         WHERE user_id = $1 ${dateFilter ? dateFilter : "AND created_at >= NOW() - INTERVAL '7 days'"}
         GROUP BY TO_CHAR(created_at, 'Mon DD'), DATE(created_at)
