@@ -115,25 +115,29 @@ router.post('/single-login', async (req, res) => {
       [emailLower, otp, expiresAt]
     );
 
-    // Send email via nodemailer
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: process.env.SMTP_PORT || 587,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+    // Send email via Google Apps Script
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) {
+      throw new Error('GOOGLE_SCRIPT_URL is not configured');
+    }
+
+    const emailResponse = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: emailLower,
+        subject: 'Your Login PIN Code',
+        html: `<h2>Your Login PIN Code</h2><p>Your PIN is: <strong>${otp}</strong></p><p>It expires in 10 minutes.</p>`,
+        text: `Your login PIN is: ${otp}. It expires in 10 minutes.`,
+        name: 'SMTP Manager',
+        replyTo: process.env.SMTP_USER || 'noreply@smtpmanager.com'
+      })
     });
 
-    await transporter.sendMail({
-      from: process.env.SMTP_USER,
-      to: emailLower,
-      subject: 'Your Login PIN Code',
-      text: `Your login PIN is: ${otp}. It expires in 10 minutes.`,
-      html: `<h2>Your Login PIN Code</h2><p>Your PIN is: <strong>${otp}</strong></p><p>It expires in 10 minutes.</p>`,
-    });
+    const result = await emailResponse.json();
+    if (result.status !== 'success') {
+      throw new Error(result.message || 'Failed to send OTP via Google Script');
+    }
 
     console.log(`📧 OTP sent to new user: ${emailLower}`);
 
