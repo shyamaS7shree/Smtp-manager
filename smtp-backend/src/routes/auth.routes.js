@@ -64,7 +64,7 @@ router.post('/register', async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/single-login   ← matches MailWizz endpoint name
-// Body: { email, password }
+// Body: { email }
 // ─────────────────────────────────────────────────────────────
 router.post('/single-login', async (req, res) => {
   try {
@@ -76,18 +76,7 @@ router.post('/single-login', async (req, res) => {
 
     const emailLower = email.toLowerCase();
 
-    // 1. Check if the email is in the allowed_emails table
-    const allowedCheck = await pool.query(
-      'SELECT email FROM allowed_emails WHERE email = $1',
-      [emailLower]
-    );
-
-    if (allowedCheck.rows.length === 0) {
-      console.log(`❌ Rejected unauthorized email login attempt: ${emailLower}`);
-      return res.status(401).json({ status: 'error', message: 'Email not authorized for login.' });
-    }
-
-    // 2. Check if the user already exists in the main users table
+    // 1. Check if the user already exists in the main users table
     let { rows } = await pool.query(
       'SELECT id, uid, name, email, password, role, is_active FROM users WHERE email = $1',
       [emailLower]
@@ -95,29 +84,117 @@ router.post('/single-login', async (req, res) => {
 
     let user = rows[0];
 
-    // If user does not exist in users table but IS allowed, auto-register them
-    if (!user) {
-      const uid = generateUid();
-      const dummyPassword = await bcrypt.hash(uid, 12);
-      const name = email.split('@')[0]; // Extract name from email
+    // If user exists, log them in immediately! No PIN required.
+    if (user) {
+      if (!user.is_active) {
+        return res.status(401).json({ status: 'error', message: 'Account is deactivated.' });
+      }
 
-      const insertResult = await pool.query(
-        `INSERT INTO users (uid, name, email, password, role)
-         VALUES ($1, $2, $3, $4, 'admin')
-         RETURNING id, uid, name, email, role, is_active`,
-        [uid, name, emailLower, dummyPassword]
-      );
-      user = insertResult.rows[0];
-      console.log(`🆕 Auto-registered allowed user: ${user.email}`);
+      const token = signToken(user.id);
+      console.log(`✅ Login: ${user.email}`);
+
+      return res.status(200).json({
+        status: 'success',
+        user: { id: user.id, name: user.name, email: user.email },
+        authorisation: {
+          token,
+          type:         'bearer',
+          ttl:          1440,
+          generated_at: Math.floor(Date.now() / 1000),
+        },
+      });
     }
 
-    if (!user.is_active) {
-      return res.status(401).json({ status: 'error', message: 'Account is deactivated.' });
+    // 2. If user DOES NOT exist, send OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await pool.query(
+      `INSERT INTO otps (email, otp, expires_at) VALUES ($1, $2, $3)
+       ON CONFLICT (email) DO UPDATE SET otp = EXCLUDED.otp, expires_at = EXCLUDED.expires_at`,
+      [emailLower, otp, expiresAt]
+    );
+
+    // Send email via nodemailer
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: process.env.SMTP_PORT || 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: emailLower,
+      subject: 'Your Login PIN Code',
+      text: `Your login PIN is: ${otp}. It expires in 10 minutes.`,
+      html: `<h2>Your Login PIN Code</h2><p>Your PIN is: <strong>${otp}</strong></p><p>It expires in 10 minutes.</p>`,
+    });
+
+    console.log(`📧 OTP sent to new user: ${emailLower}`);
+
+    return res.status(200).json({
+      status: 'otp_required',
+      message: 'A 6-digit PIN has been sent to your email to authenticate.',
+    });
+
+  } catch (error) {
+    console.error('💥 login error:', error);
+    return res.status(500).json({ status: 'error', message: 'Authentication failed.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/verify-otp
+// Body: { email, otp }
+// ─────────────────────────────────────────────────────────────
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ status: 'error', message: 'Email and OTP are required.' });
     }
 
-    // No password check needed
+    const emailLower = email.toLowerCase();
+
+    const otpCheck = await pool.query(
+      'SELECT * FROM otps WHERE email = $1 AND otp = $2 AND expires_at > NOW()',
+      [emailLower, otp]
+    );
+
+    if (otpCheck.rows.length === 0) {
+      return res.status(401).json({ status: 'error', message: 'Invalid or expired PIN.' });
+    }
+
+    // OTP is valid. Clear it.
+    await pool.query('DELETE FROM otps WHERE email = $1', [emailLower]);
+
+    // Create the user
+    const uid = generateUid();
+    const dummyPassword = await bcrypt.hash(uid, 12);
+    const name = email.split('@')[0];
+
+    const insertResult = await pool.query(
+      `INSERT INTO users (uid, name, email, password, role)
+       VALUES ($1, $2, $3, $4, 'admin')
+       RETURNING id, uid, name, email, role, is_active`,
+      [uid, name, emailLower, dummyPassword]
+    );
+    const user = insertResult.rows[0];
+
+    // Add to allowed_emails automatically
+    await pool.query(
+      `INSERT INTO allowed_emails (email) VALUES ($1) ON CONFLICT DO NOTHING`,
+      [emailLower]
+    );
+
+    console.log(`🆕 Auto-registered and authenticated new user: ${user.email}`);
+
     const token = signToken(user.id);
-    console.log(`✅ Login: ${user.email}`);
 
     return res.status(200).json({
       status: 'success',
@@ -129,9 +206,10 @@ router.post('/single-login', async (req, res) => {
         generated_at: Math.floor(Date.now() / 1000),
       },
     });
+
   } catch (error) {
-    console.error('💥 login error:', error);
-    return res.status(500).json({ status: 'error', message: 'Authentication failed.' });
+    console.error('💥 verify otp error:', error);
+    return res.status(500).json({ status: 'error', message: 'Verification failed.' });
   }
 });
 
