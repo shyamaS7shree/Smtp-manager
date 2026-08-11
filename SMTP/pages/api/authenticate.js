@@ -7,12 +7,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { email } = req.body
+    const { email, otp } = req.body
+    
+    const endpoint = otp ? "/verify-otp" : "/single-login"
+    const payload = otp ? { email, otp } : { email }
 
-    const response = await fetch(`${baseUrl}/single-login`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(payload),
     })
 
     const data = await response.json()

@@ -5,6 +5,8 @@ import { useRouter } from "next/router"
 
 export default function AuthPage() {
   const [email, setEmail] = useState("")
+  const [otpSent, setOtpSent] = useState(false)
+  const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [autoMode, setAutoMode] = useState(false)
@@ -17,10 +19,12 @@ export default function AuthPage() {
     setMessage("")
 
     try {
+      const bodyData = otpSent ? { email, otp } : { email }
+      
       const response = await fetch("/api/authenticate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(bodyData),
       })
 
       const data = await response.json()
@@ -39,11 +43,14 @@ export default function AuthPage() {
         localStorage.setItem("userSession", JSON.stringify(userSession))
         setMessage("✅ Login successful! Redirecting...")
         setTimeout(() => router.push('/'), 1500)
+      } else if (data.status === "otp_required") {
+        setOtpSent(true)
+        setMessage("✅ " + data.message)
       } else {
         setMessage("❌ " + (data.message || "Invalid credentials."))
       }
     } catch (error) {
-      setMessage("💥 Error during login.")
+      setMessage("💥 Error during authentication.")
     } finally {
       setLoading(false)
     }
@@ -58,14 +65,14 @@ export default function AuthPage() {
   }, [router.isReady, router.query])
 
   useEffect(() => {
-    if (autoMode && countdown > 0) {
+    if (autoMode && countdown > 0 && !otpSent) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
       return () => clearTimeout(timer)
-    } else if (autoMode && countdown === 0 && !loading && !message) {
+    } else if (autoMode && countdown === 0 && !loading && !message && !otpSent) {
       handleSubmit()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoMode, countdown])
+  }, [autoMode, countdown, otpSent])
 
   return (
     <div
@@ -101,7 +108,7 @@ export default function AuthPage() {
           🔐 Email Authentication
         </h1>
 
-        {autoMode && countdown > 0 && (
+        {autoMode && countdown > 0 && !otpSent && (
           <div
             style={{
               textAlign: "center",
@@ -127,7 +134,7 @@ export default function AuthPage() {
             fontSize: "0.9rem",
           }}
         >
-          Enter your email to login
+          {otpSent ? "Check your email for the 6-digit PIN" : "Enter your email to login"}
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -149,6 +156,7 @@ export default function AuthPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={otpSent}
               style={{
                 width: "100%",
                 padding: "1rem",
@@ -157,10 +165,47 @@ export default function AuthPage() {
                 fontSize: "1rem",
                 boxSizing: "border-box",
                 outline: "none",
+                backgroundColor: otpSent ? "#f3f4f6" : "white",
               }}
               placeholder="your.email@example.com"
             />
           </div>
+
+          {otpSent && (
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label
+                htmlFor="otp"
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  color: "#374151",
+                  fontWeight: "500",
+                }}
+              >
+                6-Digit PIN:
+              </label>
+              <input
+                type="text"
+                id="otp"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                required
+                maxLength="6"
+                style={{
+                  width: "100%",
+                  padding: "1rem",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: "8px",
+                  fontSize: "1.5rem",
+                  letterSpacing: "0.5rem",
+                  textAlign: "center",
+                  boxSizing: "border-box",
+                  outline: "none",
+                }}
+                placeholder="------"
+              />
+            </div>
+          )}
 
           <button
             type="submit"
@@ -174,15 +219,15 @@ export default function AuthPage() {
               borderRadius: "8px",
               fontSize: "1.1rem",
               fontWeight: "600",
-              cursor: loading || (autoMode && countdown > 0) ? "not-allowed" : "pointer",
+              cursor: loading || (autoMode && countdown > 0 && !otpSent) ? "not-allowed" : "pointer",
               transition: "all 0.3s",
             }}
           >
             {loading
-              ? "⏳ Authenticating..."
-              : autoMode && countdown > 0
+              ? (otpSent ? "⏳ Verifying..." : "⏳ Authenticating...")
+              : autoMode && countdown > 0 && !otpSent
                 ? `⏰ Auto-starting in ${countdown}s...`
-                : "🚀 Authenticate Email"}
+                : (otpSent ? "🔐 Verify PIN" : "🚀 Authenticate Email")}
           </button>
         </form>
 
